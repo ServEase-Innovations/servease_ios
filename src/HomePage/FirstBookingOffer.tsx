@@ -1,12 +1,10 @@
-import React, { useRef, useEffect } from "react";
+import React from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Animated,
   Platform,
-  useWindowDimensions,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Icon from "react-native-vector-icons/MaterialIcons";
@@ -18,151 +16,106 @@ interface FirstBookingOfferProps {
   visible?: boolean;
 }
 
-const ACCENT = {
-  gold: "#F59E0B",
-  goldLight: "#FEF3C7",
-  red: "#DC2626",
-  redSoft: "#FEE2E2",
-};
+const MAX_FONT_SCALE = 1.2;
 
 const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
   onPress,
   visible = true,
 }) => {
   const { isDarkMode } = useTheme();
-  const { width } = useWindowDimensions();
-  const isCompactLayout = width < 480;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.02,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    }
-  }, [visible, pulseAnim]);
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.95,
-      useNativeDriver: true,
-      tension: 300,
-      friction: 12,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      tension: 300,
-      friction: 12,
-    }).start();
-  };
 
   if (!visible) return null;
 
-  const mutedColor = isDarkMode ? "#E5D3A8" : "#5B4A2A";
+  const mutedColor = isDarkMode ? "#66552F" : "#725B32";
 
   return (
     <TouchableOpacity
-      activeOpacity={1}
+      activeOpacity={0.9}
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
       accessibilityRole="button"
       accessibilityLabel={`First booking offer, 99 rupees with codes ${FIRST_BOOKING_COUPON_CODES.MAID} and ${FIRST_BOOKING_COUPON_CODES.COOK}`}
       style={styles.container}
     >
-      <Animated.View
-        style={[
-          styles.cardOuter,
-          { transform: [{ scale: scaleAnim }, { scale: pulseAnim }] },
-        ]}
-      >
+      <View style={styles.cardOuter}>
         <LinearGradient
-          colors={["#FBE7B8", "#F3CF86"]}
+          colors={["#FFF5D9", "#FBE6B2"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.card}
         >
-          <View style={styles.topRow}>
-            <Text style={styles.hotDealLabel}>EXCLUSIVE HOT DEAL</Text>
-            <Text style={styles.hotDealIcon}>🔥</Text>
+          <View style={styles.offerLabel}>
+            <Icon name="local-fire-department" size={17} color="#C2410C" />
+            <Text
+              style={styles.offerLabelText}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+            >
+              FIRST BOOKING OFFER
+            </Text>
           </View>
 
-          <View
-            style={[styles.mainRow, isCompactLayout && styles.mainRowCompact]}
-          >
-            <View style={styles.offerBlock}>
-              <Text
-                style={[
-                  styles.eyebrow,
-                  isCompactLayout && styles.eyebrowCompact,
-                ]}
-              >
-                First Booking
-              </Text>
-              <Text
-                style={[
-                  styles.priceValue,
-                  isCompactLayout && styles.priceValueCompact,
-                ]}
-              >
-                ₹99 flat
-              </Text>
-            </View>
+          <View style={styles.priceSection}>
+            <Text
+              style={styles.price}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+            >
+              ₹99
+            </Text>
+            <Text
+              style={styles.priceCaption}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+            >
+              flat on your first booking
+            </Text>
+          </View>
 
-            {!isCompactLayout ? (
+          <View style={styles.couponSection}>
+            <Text
+              style={styles.couponHeading}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+            >
+              Choose your coupon
+            </Text>
+            <View style={styles.couponList}>
               <View style={styles.couponChip}>
-                <Text style={styles.couponCode}>
+                <Text style={styles.couponService}>MAID</Text>
+                <Text
+                  style={styles.couponCode}
+                  maxFontSizeMultiplier={MAX_FONT_SCALE}
+                >
                   {FIRST_BOOKING_COUPON_CODES.MAID}
                 </Text>
-                <Text style={styles.couponCode}>
-                  &amp; {FIRST_BOOKING_COUPON_CODES.COOK}
+              </View>
+              <View style={styles.couponChip}>
+                <Text style={styles.couponService}>COOK</Text>
+                <Text
+                  style={styles.couponCode}
+                  maxFontSizeMultiplier={MAX_FONT_SCALE}
+                >
+                  {FIRST_BOOKING_COUPON_CODES.COOK}
                 </Text>
               </View>
-            ) : null}
-
-            <LinearGradient
-              colors={["#FB923C", "#F97316"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.tapBtn}
-            >
-              <Text style={styles.tapBtnText}>Tap to Book</Text>
-              <Icon name="arrow-forward" size={16} color="#FFFFFF" />
-            </LinearGradient>
+            </View>
           </View>
 
-          {isCompactLayout ? (
-            <View style={[styles.couponChip, styles.couponChipCompact]}>
-              <Text style={styles.couponCode}>
-                {FIRST_BOOKING_COUPON_CODES.MAID}
-              </Text>
-              <Text style={styles.couponCode}>
-                &amp; {FIRST_BOOKING_COUPON_CODES.COOK}
-              </Text>
-            </View>
-          ) : null}
+          <View style={styles.bookingButton}>
+            <Text
+              style={styles.bookingButtonText}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+              numberOfLines={1}
+            >
+              Tap to Book
+            </Text>
+            <Icon name="arrow-forward" size={19} color="#FFFFFF" />
+          </View>
 
-          <Text style={[styles.termsText, { color: mutedColor }]}>
-            T&C apply • Valid on first booking only
+          <Text
+            style={[styles.termsText, { color: mutedColor }]}
+            maxFontSizeMultiplier={MAX_FONT_SCALE}
+          >
+            T&C apply · Valid on first booking only
           </Text>
         </LinearGradient>
-      </Animated.View>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -170,116 +123,142 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
+    alignSelf: "stretch",
     paddingVertical: 8,
   },
   cardOuter: {
     width: "100%",
-    borderRadius: 18,
+    alignSelf: "stretch",
+    borderRadius: 20,
     ...Platform.select({
       ios: {
-        shadowColor: "#F59E0B",
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
+        shadowColor: "#B7791F",
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.16,
+        shadowRadius: 10,
       },
-      android: { elevation: 6, shadowColor: "#F59E0B" },
+      android: { elevation: 4, shadowColor: "#B7791F" },
     }),
   },
   card: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(217, 160, 60, 0.55)",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    borderColor: "rgba(201, 162, 78, 0.5)",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     overflow: "hidden",
   },
-  topRow: {
+  offerLabel: {
     flexDirection: "row",
     alignItems: "center",
+    alignSelf: "flex-start",
     gap: 6,
-    marginBottom: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.68)",
   },
-  hotDealIcon: { fontSize: 16 },
-  hotDealLabel: {
-    fontSize: 14,
+  offerLabelText: {
+    color: "#7C2D12",
+    fontSize: 12,
     fontWeight: "800",
-    color: "#1F1A10",
-    letterSpacing: 0.2,
+    letterSpacing: 0.4,
+    flexShrink: 1,
   },
-  mainRow: {
-    flexDirection: "row",
+  priceSection: {
     alignItems: "center",
-    justifyContent: "space-between",
+    paddingTop: 8,
+    paddingBottom: 14,
+  },
+  price: {
+    color: "#1F1A10",
+    fontSize: 40,
+    fontWeight: "900",
+    lineHeight: 50,
+    textAlign: "center",
+    paddingHorizontal: 4,
+  },
+  priceCaption: {
+    color: "#57462A",
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  couponSection: {
+    borderTopWidth: 1,
+    borderTopColor: "rgba(201, 162, 78, 0.35)",
+    paddingTop: 12,
+  },
+  couponHeading: {
+    color: "#57462A",
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  couponList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
     gap: 8,
   },
-  mainRowCompact: {
-    justifyContent: "space-between",
-  },
-  offerBlock: { flexShrink: 1 },
-  eyebrow: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#1F1A10",
-  },
-  eyebrowCompact: {
-    fontSize: 16,
-  },
-  priceValue: {
-    fontSize: 30,
-    fontWeight: "800",
-    color: "#1F1A10",
-    lineHeight: 36,
-    letterSpacing: -0.5,
-  },
-  priceValueCompact: {
-    fontSize: 26,
-    lineHeight: 32,
-  },
   couponChip: {
-    backgroundColor: "rgba(255, 244, 214, 0.7)",
-    borderRadius: 10,
+    flexGrow: 1,
+    flexBasis: "46%",
+    minWidth: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.72)",
+    borderRadius: 12,
     borderWidth: 1,
     borderStyle: "dashed",
     borderColor: "#C9A24E",
     paddingHorizontal: 8,
     paddingVertical: 8,
-    alignItems: "center",
-    flexShrink: 1,
   },
-  couponChipCompact: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 10,
-    alignSelf: "stretch",
+  couponService: {
+    color: "#8A6A2F",
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: "800",
+    letterSpacing: 0.8,
   },
   couponCode: {
-    fontSize: 12,
-    fontWeight: "800",
     color: "#1F1A10",
-    letterSpacing: 0.2,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "800",
+    textAlign: "center",
+    flexShrink: 1,
   },
-  tapBtn: {
+  bookingButton: {
+    minHeight: 50,
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 12,
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 14,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 24,
-    flexShrink: 0,
-    shadowColor: "#F97316",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    borderRadius: 14,
+    backgroundColor: "#EA580C",
   },
-  tapBtnText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
+  bookingButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: "800",
+    flexShrink: 0,
+  },
   termsText: {
-    marginTop: 6,
-    fontSize: 12,
+    marginTop: 10,
+    fontSize: 11,
     lineHeight: 16,
     textAlign: "center",
     fontWeight: "500",
+    alignSelf: "stretch",
   },
 });
 

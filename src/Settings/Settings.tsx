@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Switch,
   Modal,
   Alert,
   TextInput,
@@ -24,7 +23,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from './ThemeContext';
-import { fontSizes, themeOptions, languages } from './settingsConfig';
+// import { fontSizes, themeOptions, languages } from './settingsConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SecuritySettingsModal from './SecuritySettingsModal';
 import ContactUs from '../ContactUs/ContactUs';
@@ -34,7 +33,7 @@ import PrivacyPolicy from '../TermsAndConditions/PrivacyPolicy';
 import { HomeHeroPageHeader } from '../common/HomeHeroPageHeader';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../../i18n';
-import { BOOKING_HEADER_GRADIENT, BRAND, HOME_M3, HOME_HERO_GRADIENT } from '../theme/brandColors';
+import { HOME_M3, HOME_HERO_GRADIENT } from '../theme/brandColors';
 import { requestPushNotificationPermission } from '../services/pushNotifications';
 import { refreshPushRegistration } from '../services/pushApi';
 import { useAppUser } from '../context/AppUserContext';
@@ -54,7 +53,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const insets = useSafeAreaInsets();
   const { appUser } = useAppUser();
   const { user: auth0User } = useAuth0();
-  const iconGradient = [BRAND.accent, BRAND.bookingSky];
+  const iconGradient = [...HOME_HERO_GRADIENT];
   const {
     theme,
     isDarkMode,
@@ -207,7 +206,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
     }
   };
 
-  const SettingItem = ({ icon, label, value, onPress, rightIcon = 'chevron-right', showSwitch = false, switchValue = false, onSwitchChange, isLast = false, iconBg, valueDanger = false }: any) => {
+  const SettingItem = ({ icon, label, value, onPress, rightIcon = 'chevron-right', showSwitch = false, switchValue = false, onSwitchChange, isLast = false, valueDanger = false }: any) => {
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
     const handlePressIn = () => {
@@ -234,39 +233,71 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           activeOpacity={0.65}
         >
           <View style={styles.settingItemLeft}>
-            <View style={[styles.settingIconBg, { backgroundColor: iconBg || (isDarkMode ? '#334155' : '#e8eef8') }]}>
-              <MaterialIcon name={icon} size={20} color={isDarkMode ? '#e2e8f0' : '#3b5bdb'} />
-            </View>
-            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontSize: fontStyles.textSize }]}>
+            <LinearGradient
+              colors={iconGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.settingIconBg}
+            >
+              <MaterialIcon name={icon} size={20} color="#ffffff" />
+            </LinearGradient>
+            <Text style={[styles.settingLabel, { color: isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer, fontSize: fontStyles.textSize }]}>
               {label}
             </Text>
           </View>
           <View style={styles.settingItemRight}>
             {value && !showSwitch ? (
-              <View style={[
-                styles.valuePill,
-                valueDanger
-                  ? { backgroundColor: '#fee2e2' }
-                  : { backgroundColor: isDarkMode ? colors.accentSoft : '#e8eef8' },
-              ]}>
-                <Text style={[
-                  styles.settingValue,
-                  { color: valueDanger ? '#ef4444' : (isDarkMode ? colors.primary : '#3b5bdb'), fontSize: fontStyles.smallText },
-                ]} numberOfLines={1}>
+              <LinearGradient
+                colors={
+                  valueDanger
+                    ? isDarkMode
+                      ? ['#7F1D1D', '#B91C1C']
+                      : ['#EF4444', '#B91C1C']
+                    : iconGradient
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.valuePill}
+              >
+                <Text
+                  style={[styles.settingValue, { fontSize: fontStyles.smallText }]}
+                  numberOfLines={1}
+                >
                   {value}
                 </Text>
-              </View>
+              </LinearGradient>
             ) : null}
             {showSwitch ? (
-              <Switch
-                value={switchValue}
-                onValueChange={onSwitchChange}
-                trackColor={{ false: isDarkMode ? '#475569' : '#cbd5e1', true: '#3b5bdb' }}
-                thumbColor="#ffffff"
-                ios_backgroundColor={isDarkMode ? '#475569' : '#cbd5e1'}
-              />
+              <TouchableOpacity
+                onPress={() => onSwitchChange?.(!switchValue)}
+                activeOpacity={0.85}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: switchValue }}
+                accessibilityLabel={label}
+                style={[
+                  styles.gradientSwitch,
+                  { justifyContent: switchValue ? 'flex-end' : 'flex-start' },
+                ]}
+              >
+                <LinearGradient
+                  colors={
+                    switchValue
+                      ? isDarkMode
+                        ? ['#0891B2', '#22D3EE']
+                        : [...HOME_HERO_GRADIENT]
+                      : isDarkMode
+                        ? ['#334155', '#475569']
+                        : ['#CBD5E1', '#E2E8F0']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                />
+                <View style={styles.gradientSwitchThumb} />
+              </TouchableOpacity>
             ) : (
-              <MaterialIcon name={rightIcon} size={20} color={isDarkMode ? '#475569' : '#94a3b8'} />
+              <MaterialIcon name={rightIcon} size={20} color={isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer} />
             )}
           </View>
         </TouchableOpacity>
@@ -275,9 +306,20 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   };
 
   const SectionHeader = ({ title }: { title: string; icon?: string }) => (
-    <Text style={[styles.sectionHeader, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.smallText }]}>
-      {title.toUpperCase()}
-    </Text>
+    <LinearGradient
+      colors={iconGradient}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.sectionHeaderContainer}
+    >
+      <LinearGradient
+        colors={isDarkMode ? ['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.08)'] : ['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.12)']}
+        style={styles.sectionHeaderMark}
+      />
+      <Text style={[styles.sectionHeader, { fontSize: fontStyles.smallText }]}>
+        {title.toUpperCase()}
+      </Text>
+    </LinearGradient>
   );
 
   const CustomModal = ({ visible, onClose, title, icon = "settings", children }: any) => (
@@ -303,7 +345,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                   >
                     <MaterialIcon name={icon} size={24} color="#ffffff" />
                   </LinearGradient>
-                  <Text style={[styles.bottomSheetTitle, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.headingSize }]}>
+                  <Text style={[styles.bottomSheetTitle, { color: isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer, fontSize: fontStyles.headingSize }]}>
                     {title}
                   </Text>
                   <TouchableOpacity 
@@ -446,19 +488,27 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           <SectionHeader title="About" />
           <View style={[styles.card, { backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
             <View style={[styles.aboutRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#e2e8f0' }]}>
-              <Text style={[styles.aboutLabel, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.textSize }]}>Version</Text>
-              <Text style={[styles.aboutValue, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>{appVersionLabel || '2.4.0 (Enterprise)'}</Text>
+              <Text style={[styles.aboutLabel, { color: isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer, fontSize: fontStyles.textSize }]}>Version</Text>
+              <Text style={[styles.aboutValue, { color: isDarkMode ? '#E0F2FE' : HOME_M3.onSurface, fontSize: fontStyles.textSize }]}>{appVersionLabel || '2.4.0 (Enterprise)'}</Text>
             </View>
             <View style={[styles.aboutRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#e2e8f0' }]}>
-              <Text style={[styles.aboutLabel, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.textSize }]}>Last Updated</Text>
-              <Text style={[styles.aboutValue, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>Oct 12, 2023</Text>
+              <Text style={[styles.aboutLabel, { color: isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer, fontSize: fontStyles.textSize }]}>Last Updated</Text>
+              <Text style={[styles.aboutValue, { color: isDarkMode ? '#E0F2FE' : HOME_M3.onSurface, fontSize: fontStyles.textSize }]}>Oct 12, 2023</Text>
             </View>
             <TouchableOpacity
               style={styles.termsLinkRow}
               onPress={() => setShowTnCModal(true)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.termsLink, { fontSize: fontStyles.textSize }]}>Terms of Service</Text>
+              <LinearGradient
+                colors={iconGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.termsLinkGradient}
+              >
+                <Text style={[styles.termsLink, { fontSize: fontStyles.textSize }]}>Terms of Service</Text>
+                <MaterialIcon name="arrow-forward" size={18} color="#ffffff" />
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
@@ -471,7 +521,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
               style={[
                 styles.modalItem,
                 { borderBottomWidth: idx === themeOptions.length - 1 ? 0 : 1, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' },
-                theme === option.value && { backgroundColor: isDarkMode ? 'rgba(56,189,248,0.15)' : 'rgba(59,130,246,0.1)' }
+                theme === option.value && { backgroundColor: isDarkMode ? 'rgba(8,145,178,0.18)' : 'rgba(0,191,255,0.12)' }
               ]}
               onPress={() => {
                 setTheme(option.value as 'light' | 'dark' | 'system');
@@ -483,7 +533,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                   <MaterialIcon name={option.icon} size={20} color="#ffffff" />
                 </LinearGradient>
                 <View>
-                  <Text style={[styles.modalItemText, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>
+                  <Text style={[styles.modalItemText, { color: theme === option.value ? (isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer) : (isDarkMode ? '#f8fafc' : '#1e293b'), fontSize: fontStyles.textSize }]}>
                     {option.label}
                   </Text>
                   <Text style={[styles.modalItemSubText, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.smallText }]}>
@@ -492,7 +542,12 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                 </View>
               </View>
               {theme === option.value && (
-                <MaterialIcon name="check-circle" size={22} color={colors.primary} />
+                <LinearGradient
+                  colors={iconGradient}
+                  style={styles.selectionCheck}
+                >
+                  <MaterialIcon name="check" size={16} color="#ffffff" />
+                </LinearGradient>
               )}
             </TouchableOpacity>
           ))}
@@ -506,7 +561,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
               style={[
                 styles.modalItem,
                 { borderBottomWidth: idx === fontSizes.length - 1 ? 0 : 1, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' },
-                fontSize === option.value && { backgroundColor: isDarkMode ? 'rgba(56,189,248,0.15)' : 'rgba(59,130,246,0.1)' }
+                fontSize === option.value && { backgroundColor: isDarkMode ? 'rgba(8,145,178,0.18)' : 'rgba(0,191,255,0.12)' }
               ]}
               onPress={() => {
                 setFontSize(option.value as 'small' | 'medium' | 'large');
@@ -517,12 +572,17 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                 <LinearGradient colors={iconGradient} style={styles.modalIconBg}>
                   <Text style={[styles.previewText, { fontSize: option.size }]}>{option.preview}</Text>
                 </LinearGradient>
-                <Text style={[styles.modalItemText, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: option.size }]}>
+                <Text style={[styles.modalItemText, { color: fontSize === option.value ? (isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer) : (isDarkMode ? '#f8fafc' : '#1e293b'), fontSize: option.size }]}>
                   {option.label}
                 </Text>
               </View>
               {fontSize === option.value && (
-                <MaterialIcon name="check-circle" size={22} color={colors.primary} />
+                <LinearGradient
+                  colors={iconGradient}
+                  style={styles.selectionCheck}
+                >
+                  <MaterialIcon name="check" size={16} color="#ffffff" />
+                </LinearGradient>
               )}
             </TouchableOpacity>
           ))}
@@ -578,7 +638,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                     backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
                     borderColor: isDarkMode ? '#334155' : '#e2e8f0',
                   }]}>
-                    <MaterialIcon name="search" size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                    <MaterialIcon name="search" size={20} color={isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer} />
                     <TextInput
                       style={[styles.bottomSheetSearchInput, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}
                       placeholder="Search language..."
@@ -589,7 +649,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                     />
                     {searchQuery.length > 0 && (
                       <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                        <MaterialIcon name="clear" size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                        <MaterialIcon name="clear" size={20} color={isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -610,7 +670,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                             language === lang.code && { 
                               backgroundColor: isDarkMode ? 'rgba(56,189,248,0.12)' : 'rgba(59,130,246,0.08)',
                               borderLeftWidth: 3,
-                              borderLeftColor: BRAND.primary,
+                              borderLeftColor: HOME_M3.primaryContainer,
                             }
                           ]}
                           onPress={() => handleLanguageChange(lang.code)}
@@ -631,7 +691,9 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                               <Text style={[
                                 styles.bottomSheetLanguageName, 
                                 { 
-                                  color: isDarkMode ? '#f8fafc' : '#1e293b', 
+                                  color: language === lang.code
+                                    ? (isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer)
+                                    : (isDarkMode ? '#f8fafc' : '#1e293b'),
                                   fontSize: fontStyles.textSize,
                                   fontWeight: language === lang.code ? '700' : '600',
                                 }
@@ -647,15 +709,18 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                             </View>
                           </View>
                           {language === lang.code && (
-                            <View style={[styles.bottomSheetCheckBg, { backgroundColor: BRAND.primary }]}>
+                            <LinearGradient
+                              colors={iconGradient}
+                              style={styles.bottomSheetCheckBg}
+                            >
                               <MaterialIcon name="check" size={18} color="#ffffff" />
-                            </View>
+                            </LinearGradient>
                           )}
                         </TouchableOpacity>
                       ))
                     ) : (
                       <View style={styles.bottomSheetNoResults}>
-                        <MaterialIcon name="search-off" size={48} color={isDarkMode ? '#475569' : '#cbd5e1'} />
+                        <MaterialIcon name="search-off" size={48} color={isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer} />
                         <Text style={[styles.bottomSheetNoResultsText, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.textSize }]}>
                           No languages found
                         </Text>
@@ -709,8 +774,8 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
         {isChangingLanguage && (
           <View style={styles.loadingOverlay}>
             <View style={[styles.loadingCard, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff' }]}>
-              <ActivityIndicator size="large" color={BRAND.primary} />
-              <Text style={[styles.loadingText, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>
+              <ActivityIndicator size="large" color={HOME_M3.primaryContainer} />
+              <Text style={[styles.loadingText, { color: isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer, fontSize: fontStyles.textSize }]}>
                 {t('common.changingLanguage') || 'Changing language...'}
               </Text>
             </View>
@@ -776,9 +841,9 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   sectionHeader: {
+    color: '#ffffff',
     fontWeight: '700',
     letterSpacing: 0.7,
-    marginBottom: 8,
   },
   // ── Card ────────────────────────────────────────────────────────
   card: {
@@ -823,12 +888,33 @@ const styles = StyleSheet.create({
     gap: 6,
     flexShrink: 0,
   },
+  gradientSwitch: {
+    width: 52,
+    height: 30,
+    borderRadius: 16,
+    padding: 3,
+    justifyContent: 'flex-start',
+    overflow: 'hidden',
+  },
+  gradientSwitchThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
   valuePill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
+    maxWidth: 140,
   },
   settingValue: {
+    color: '#ffffff',
     fontWeight: '600',
   },
   // ── About section rows ──────────────────────────────────────────
@@ -847,11 +933,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   termsLinkRow: {
+    alignSelf: 'center',
+    marginVertical: 12,
+  },
+  termsLinkGradient: {
+    minHeight: 42,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
   },
   termsLink: {
-    color: '#3b5bdb',
+    color: '#ffffff',
     fontWeight: '600',
   },
   // ── Modals ──────────────────────────────────────────────────────
@@ -1102,8 +1198,29 @@ const styles = StyleSheet.create({
   resetButtonText: {
     fontWeight: '700',
   },
-  sectionHeaderContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  sectionHeaderIcon: { marginRight: 6 },
+  sectionHeaderContainer: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  sectionHeaderMark: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  selectionCheck: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 
 export default Settings;

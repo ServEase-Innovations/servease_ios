@@ -12,6 +12,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../../src/Settings/ThemeContext';
+import { HOME_HERO_GRADIENT } from '../theme/brandColors';
 
 interface Booking {
   id: number;
@@ -230,7 +231,7 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
       <SafeAreaView style={dynamicStyles.modalContainer}>
         <View style={dynamicStyles.overlay}>
           <View style={dynamicStyles.dialogContainer}>
-            <LinearGradient colors={["#0b5bd3", "#4f8ff7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={dynamicStyles.header}>
+            <LinearGradient colors={[...HOME_HERO_GRADIENT]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={dynamicStyles.header}>
               <Text style={dynamicStyles.dialogTitle}>Schedule Holiday</Text>
               <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
                 <Text style={dynamicStyles.closeIcon}>×</Text>

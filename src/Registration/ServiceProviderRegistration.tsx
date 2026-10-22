@@ -755,7 +755,7 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
   const renderPolicyContent = () => {
     switch (activePolicy) {
       case 'terms':
-        return <TnC />;
+        return <TnC scrollable={false} />;
       case 'privacy':
         return <PrivacyPolicy embedded />;
       case 'keyfacts':

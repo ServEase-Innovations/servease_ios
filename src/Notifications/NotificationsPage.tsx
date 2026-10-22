@@ -36,7 +36,7 @@ import {
   timeAgo,
   typeMeta,
 } from "./inAppNotificationUtils";
-import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import { HOME_HERO_GRADIENT } from "../theme/brandColors";
 import { useTheme } from "../../src/Settings/ThemeContext";
 
 type Props = {
@@ -434,7 +434,7 @@ export default function NotificationsPage({
     <View style={[styles.guestContainer, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff' }]}>
       <View style={styles.guestIconWrapper}>
         <LinearGradient
-          colors={[...BOOKING_HEADER_GRADIENT]}
+          colors={[...HOME_HERO_GRADIENT]}
           style={styles.guestIconGradient}
         >
           <MaterialIcon name="notifications-none" size={48} color="#ffffff" />
@@ -465,7 +465,7 @@ export default function NotificationsPage({
             ]}
           >
             <LinearGradient
-              colors={[...BOOKING_HEADER_GRADIENT]}
+              colors={[...HOME_HERO_GRADIENT]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.header}
@@ -605,7 +605,7 @@ export default function NotificationsPage({
               }}
             >
               <LinearGradient
-                colors={[...BOOKING_HEADER_GRADIENT]}
+                colors={[...HOME_HERO_GRADIENT]}
                 style={styles.detailCloseGradient}
               >
                 <MaterialIcon name="close" size={20} color="#ffffff" />

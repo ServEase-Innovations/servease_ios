@@ -31,7 +31,7 @@ const ADMIN_ID = '698ace8b8ea84c91bdc93678';
 
 const { height: SCREEN_H, width: SCREEN_W } = Dimensions.get('window');
 const SHEET_MIN = SCREEN_H * 0.58;
-const SHEET_DEFAULT = SCREEN_H * 0.88;
+const SHEET_DEFAULT = SCREEN_H * 0.82;
 const SHEET_MAX = SCREEN_H * 0.96;
 const DISMISS_DRAG = 100;
 
@@ -103,6 +103,11 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
   }, [messages, showAccordion, expandedFaq, scrollToEnd]);
 
   useEffect(() => {
+    if (Platform.OS !== 'ios') {
+      keyboardOffset.setValue(0);
+      return;
+    }
+
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
@@ -208,9 +213,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
     })
   ).current;
 
-  const showBackButton = isLiveChat || chatOpen;
+  const showBackButton = isLiveChat || chatOpen || inputText.trim().length > 0;
 
   const handleBackClick = () => {
+    Keyboard.dismiss();
     setIsLiveChat(false);
     setChatOpen(false);
     setShowAccordion(true);

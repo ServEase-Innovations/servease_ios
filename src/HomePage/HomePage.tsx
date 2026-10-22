@@ -16,6 +16,7 @@ import { useDispatch } from "react-redux";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { add } from "../features/bookingTypeSlice";
 import { DETAILS } from "../Constants/pagesConstants";
+import { getMobileTabBarHeight } from "../Constants/mobileLayout";
 import LinearGradient from "react-native-linear-gradient";
 import { useAuth0 } from "react-native-auth0";
 import { useAppUser } from "../context/AppUserContext";
@@ -26,7 +27,12 @@ import {
 } from "../hooks/useServiceProviderProfile";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useTheme } from "../Settings/ThemeContext";
-import { HOME_M3 } from "../theme/brandColors";
+import {
+  HOME_HERO_GRADIENT,
+  HOME_M3,
+  HOME_SERVICE_GRADIENT,
+  HOME_SERVICE_INACTIVE_GRADIENT,
+} from "../theme/brandColors";
 import HomeHeroChrome from "./HomeHeroChrome";
 import { useTranslation } from "react-i18next";
 import FirstBookingOffer from "./FirstBookingOffer";
@@ -48,7 +54,6 @@ const heroImage = require("../../assets/images/iconhome.png");
 
 type ServiceType = "COOK" | "MAID" | "NANNY";
 
-const HERO_BLUE = "#2F96EE";
 const SHEET_LIGHT_BG = "#EAF4FE";
 const SEARCH_HEIGHT = 58;
 // Space under the search bar inside the header (room for its shadow)
@@ -61,14 +66,6 @@ const HERO_FEATURE_CHIPS = [
   { key: "booking", icon: "auto-awesome", label: "Easy Booking" },
   { key: "slots", icon: "event", label: "Flexible Slots" },
 ] as const;
-
-// Gradient backgrounds for the service cards (active / provider-inactive)
-const SERVICE_GRADIENTS: Record<ServiceType, string[]> = {
-  COOK: ["#2F96EE", "#6CC1FA"],
-  MAID: ["#2F96EE", "#6CC1FA"],
-  NANNY: ["#2F96EE", "#6CC1FA"],
-};
-const SERVICE_GRADIENT_INACTIVE = ["#CBD5E1", "#94A3B8"];
 
 const HAPPY_HOME_AVATARS = ["#BFE3FB", "#E3D4F7", "#FDE2C4"];
 
@@ -176,7 +173,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
       container: { flex: 1, backgroundColor: colors.background },
       whiteContentSection: {
         backgroundColor: sheetBg,
-        flex: 1,
         paddingHorizontal: contentPadding,
         paddingTop: 8,
       },
@@ -356,7 +352,11 @@ const HomePage: React.FC<ChildComponentProps> = ({
         ]}
       >
         <LinearGradient
-          colors={isInactive ? SERVICE_GRADIENT_INACTIVE : SERVICE_GRADIENTS[service.key]}
+          colors={
+            isInactive
+              ? [...HOME_SERVICE_INACTIVE_GRADIENT]
+              : [...HOME_SERVICE_GRADIENT]
+          }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFillObject}
@@ -395,7 +395,10 @@ const HomePage: React.FC<ChildComponentProps> = ({
       <ScrollView
         ref={scrollRef}
         style={[dynamicStyles.container, { backgroundColor: sheetBg }]}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: getMobileTabBarHeight(insets.bottom) + 24 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header: straight-edged blue gradient with the search bar straddling its bottom edge */}
@@ -708,7 +711,12 @@ const HomePage: React.FC<ChildComponentProps> = ({
           />
 
           {showSiteFooter ? (
-            <View style={styles.siteFooterWrap}>
+            <View
+              style={[
+                styles.siteFooterWrap,
+                { marginHorizontal: -contentPadding },
+              ]}
+            >
               <Footer />
             </View>
           ) : null}
@@ -746,16 +754,15 @@ const HomePage: React.FC<ChildComponentProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // Extra bottom padding so the footer isn't hidden behind the bottom tab bar
-  scrollContent: { paddingBottom: 84 },
-  siteFooterWrap: { width: "100%", alignSelf: "stretch", marginTop: 8 },
+  scrollContent: { paddingBottom: 24 },
+  siteFooterWrap: { alignSelf: "stretch", marginTop: 8 },
 
   statusBarCover: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: HERO_BLUE,
+    backgroundColor: HOME_HERO_GRADIENT[0],
     zIndex: 3000,
   },
 

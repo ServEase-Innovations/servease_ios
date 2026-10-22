@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import axiosInstance from '../services/axiosInstance';
-import { BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
+import { HOME_HERO_GRADIENT } from '../theme/brandColors';
 import { useTheme } from '../Settings/ThemeContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -233,7 +233,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBackToLogin }) => {
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : verticalScale(20)}
       >
         <LinearGradient
-          colors={[...BOOKING_HEADER_GRADIENT]}
+          colors={[...HOME_HERO_GRADIENT]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[styles.headerGradient, { paddingTop: Platform.OS === "ios" ? verticalScale(50) : verticalScale(40) }]}

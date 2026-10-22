@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import LinearGradient from 'react-native-linear-gradient';
 import { useDispatch } from 'react-redux';
 import { add, add as addBooking } from "../features/bookingTypeSlice";
 import dayjs from 'dayjs';
@@ -28,16 +29,21 @@ import NannyServicesDialog from '../ServiceDialogs/NannyServiceDialog';
 import { useAppUser } from '../context/AppUserContext';
 import { useTheme } from '../Settings/ThemeContext';
 import { DETAILS } from '../Constants/pagesConstants';
-import { BRAND } from '../theme/brandColors';
+import {
+  BRAND,
+  HOME_HERO_GRADIENT,
+  HOME_SERVICE_GRADIENT,
+  HOME_SERVICE_INACTIVE_GRADIENT,
+} from '../theme/brandColors';
 import { useTranslation } from 'react-i18next';
 import {
   isServiceOfferedByProvider,
   useServiceProviderProfile,
 } from '../hooks/useServiceProviderProfile';
 
-const cookImage = require("../../assets/images/Cooknew.png");
-const maidImage = require("../../assets/images/Maidnew.png");
-const nannyImage = require("../../assets/images/Nannynew.png");
+const cookImage = require("../../assets/images/iconcook.png");
+const maidImage = require("../../assets/images/iconmaid.png");
+const nannyImage = require("../../assets/images/iconnanny.png");
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_MAX_HEIGHT = Math.min(SCREEN_HEIGHT * 0.82, 560);
@@ -49,8 +55,6 @@ interface ServiceOption {
   title: string;
   description: string;
   imageSource: ReturnType<typeof require>;
-  accent: string;
-  tint: string;
 }
 
 interface ServicesDialogProps {
@@ -488,24 +492,18 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
       title: 'Home Cook',
       description: 'Verified cooks for hygienic, home-style meals',
       imageSource: cookImage,
-      accent: '#0EA5E9',
-      tint: '#E0F2FE',
     },
     {
       id: 'cleaning-help',
       title: 'Cleaning Help',
       description: 'Trained maids for thorough home cleaning',
       imageSource: maidImage,
-      accent: '#059669',
-      tint: '#D1FAE5',
     },
     {
       id: 'caregiver',
       title: 'Caregiver',
       description: 'Compassionate care for children & elderly',
       imageSource: nannyImage,
-      accent: '#7C3AED',
-      tint: '#EDE9FE',
     },
   ];
 
@@ -549,23 +547,32 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
                 <View style={[styles.handle, { backgroundColor: borderColor }]} />
               </View>
 
-              <View style={styles.headerRow}>
-                <View style={styles.headerTextWrap}>
-                  <Text style={[styles.headerEyebrow, { color: textMuted }]}>
-                    {isServiceProvider ? 'Browse only' : 'New booking'}
-                  </Text>
-                  <Text style={[styles.headerTitle, { color: textPrimary }]}>
-                    {isServiceProvider ? 'Our services' : 'Select a service'}
-                  </Text>
+              <View style={styles.headerShell}>
+                <LinearGradient
+                  colors={[...HOME_HERO_GRADIENT]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                />
+                <View style={styles.headerRow}>
+                  <View style={styles.headerTextWrap}>
+                    <Text style={styles.headerEyebrow}>
+                      {isServiceProvider ? 'Browse only' : 'New booking'}
+                    </Text>
+                    <Text style={styles.headerTitle}>
+                      {isServiceProvider ? 'Our services' : 'Select a service'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={dismissSheet}
+                    style={styles.closeBtn}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityLabel="Close"
+                  >
+                    <Icon name="close" size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  onPress={dismissSheet}
-                  style={[styles.closeBtn, { backgroundColor: isDarkMode ? colors.card : '#F1F5F9' }]}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityLabel="Close"
-                >
-                  <Icon name="close" size={20} color={textPrimary} />
-                </TouchableOpacity>
               </View>
 
               <ScrollView
@@ -592,64 +599,56 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
                   What do you need help with?
                 </Text>
 
-                <View style={styles.serviceList}>
+                <View style={styles.serviceGrid}>
                   {serviceOptions.map((service) => {
                     const inactive = showProviderInactiveVisual(service.id);
                     const interactionDisabled = isServiceInactiveForProvider(service.id);
 
                     return (
-                    <TouchableOpacity
-                      key={service.id}
-                      style={[
-                        styles.serviceRow,
-                        {
-                          backgroundColor: isDarkMode ? colors.card : '#FFFFFF',
-                          borderColor,
-                        },
-                        inactive && styles.serviceRowDisabled,
-                      ]}
-                      onPress={() => handleServiceSelect(service.id)}
-                      activeOpacity={interactionDisabled ? 1 : 0.82}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Select ${service.title}`}
-                      accessibilityState={{ disabled: interactionDisabled }}
-                    >
-                      <View style={[styles.serviceThumbWrap, { backgroundColor: service.tint }]}>
-                        <Image
-                          source={service.imageSource}
-                          style={[styles.serviceThumb, inactive && styles.serviceThumbDisabled]}
-                          resizeMode="cover"
+                      <TouchableOpacity
+                        key={service.id}
+                        onPress={() => handleServiceSelect(service.id)}
+                        activeOpacity={interactionDisabled ? 1 : 0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Select ${service.title}`}
+                        accessibilityState={{ disabled: interactionDisabled }}
+                        style={styles.serviceCard}
+                      >
+                        <LinearGradient
+                          colors={
+                            inactive
+                              ? [...HOME_SERVICE_INACTIVE_GRADIENT]
+                              : [...HOME_SERVICE_GRADIENT]
+                          }
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={StyleSheet.absoluteFillObject}
+                          pointerEvents="none"
                         />
-                      </View>
-
-                      <View style={styles.serviceCopy}>
-                        <View style={styles.serviceTitleRow}>
-                          <Text style={[styles.serviceTitle, { color: textPrimary }, inactive && styles.serviceTitleDisabled]} numberOfLines={1}>
-                            {service.title}
-                          </Text>
-                          {isServiceProvider ? (
-                            <View style={[styles.serviceStatusPill, inactive ? styles.serviceStatusPillInactive : styles.serviceStatusPillActive]}>
-                              <Text style={styles.serviceStatusPillText}>
-                                {inactive
-                                  ? t('home.serviceProvider.service.inactive')
-                                  : t('home.serviceProvider.service.active')}
-                              </Text>
-                            </View>
-                          ) : null}
+                        <View style={styles.serviceImageBox}>
+                          {inactive ? (
+                            <Icon
+                              name="block"
+                              size={36}
+                              color="rgba(255,255,255,0.85)"
+                            />
+                          ) : (
+                            <Image
+                              source={service.imageSource}
+                              style={styles.serviceImage}
+                              resizeMode="contain"
+                            />
+                          )}
                         </View>
-                        <Text style={[styles.serviceSubtitle, { color: textMuted }, inactive && styles.serviceSubtitleDisabled]} numberOfLines={2}>
-                          {inactive
-                            ? !isAccountActive
-                              ? t('home.serviceProvider.service.inactiveAlert.accountInactive')
-                              : t('home.serviceProvider.service.notOffered')
-                            : service.description}
+                        <Text
+                          style={styles.serviceTitle}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.75}
+                        >
+                          {service.title}
                         </Text>
-                      </View>
-
-                      <View style={[styles.serviceCta, { borderColor: inactive ? '#CBD5E1' : service.accent }]}>
-                        <Icon name="arrow-forward" size={18} color={inactive ? '#94A3B8' : service.accent} />
-                      </View>
-                    </TouchableOpacity>
+                      </TouchableOpacity>
                     );
                   })}
                 </View>
@@ -754,13 +753,17 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 999,
   },
+  headerShell: {
+    position: 'relative',
+    overflow: 'hidden',
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 12,
+    paddingVertical: 12,
+    minHeight: 68,
   },
   headerTextWrap: {
     flex: 1,
@@ -771,12 +774,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 2,
+    color: 'rgba(255,255,255,0.78)',
+    marginBottom: 3,
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.3,
+    color: '#FFFFFF',
   },
   closeBtn: {
     width: 36,
@@ -784,10 +789,14 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 8,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   providerBanner: {
     flexDirection: 'row',
@@ -808,89 +817,56 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   sectionLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 10,
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 12,
   },
-  serviceList: {
-    gap: 10,
-  },
-  serviceRow: {
+  serviceGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 12,
-    gap: 12,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
   },
-  serviceRowDisabled: {
-    opacity: 0.55,
-  },
-  serviceThumbDisabled: {
-    opacity: 0.65,
-  },
-  serviceTitleRow: {
-    flexDirection: 'row',
+  serviceCard: {
+    width: '31%',
+    aspectRatio: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
-    marginBottom: 2,
+    position: 'relative',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1D6FD8',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: { elevation: 4 },
+    }),
   },
-  serviceTitleDisabled: {
-    color: '#64748B',
-  },
-  serviceSubtitleDisabled: {
-    color: '#94A3B8',
-  },
-  serviceStatusPill: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  serviceStatusPillInactive: {
-    backgroundColor: '#E2E8F0',
-  },
-  serviceStatusPillActive: {
-    backgroundColor: '#DCFCE7',
-  },
-  serviceStatusPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  serviceThumbWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    overflow: 'hidden',
+  serviceImageBox: {
+    flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  serviceThumb: {
-    width: 52,
-    height: 52,
-  },
-  serviceCopy: {
-    flex: 1,
-    minWidth: 0,
+  serviceImage: {
+    width: '100%',
+    height: '100%',
   },
   serviceTitle: {
-    fontSize: 16,
+    width: '100%',
+    fontSize: 14,
     fontWeight: '700',
-    marginBottom: 2,
-  },
-  serviceSubtitle: {
-    fontSize: 13,
+    textAlign: 'center',
     lineHeight: 18,
-  },
-  serviceCta: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0,0,0,0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   footerNote: {
     fontSize: 12,

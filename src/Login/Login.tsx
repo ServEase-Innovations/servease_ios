@@ -18,7 +18,7 @@ import {
   SafeAreaView,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
-import { GRADIENTS, BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import { HOME_HERO_GRADIENT } from "../theme/brandColors";
 import { useDispatch } from "react-redux";
 import { add } from "../features/userSlice";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -485,13 +485,13 @@ export const Login: React.FC<ChildComponentProps> = ({
     };
   }, [otpSent, resendIn]);
 
-  // Render header with BOOKING_HEADER_GRADIENT
+  // Render header with the shared home and booking gradient.
   const renderHeader = () => {
     if (!embedded) return null;
     
     return (
       <LinearGradient
-        colors={[...BOOKING_HEADER_GRADIENT]}
+        colors={[...HOME_HERO_GRADIENT]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.headerGradient, { paddingTop: Platform.OS === "ios" ? verticalScale(50) : verticalScale(40) }]}

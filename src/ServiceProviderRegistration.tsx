@@ -35,7 +35,7 @@ import TnC from "./TermsAndConditions/TnC";
 import PrivacyPolicy from "./TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "./TermsAndConditions/KeyFactsStatement";
 import { HomeHeroPageHeader } from "./common/HomeHeroPageHeader";
-import { HOME_M3 } from "./theme/brandColors";
+import { HOME_HERO_GRADIENT, HOME_M3 } from "./theme/brandColors";
 import providerInstance from "./services/providerInstance";
 import BasicInformation from "./Registration/BasicInformation";
 import AddressComponent from "./Registration/AddressComponent";
@@ -805,7 +805,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
   const renderPolicyContent = () => {
     switch (activePolicy) {
-      case 'terms': return <TnC />;
+      case 'terms': return <TnC scrollable={false} />;
       case 'privacy': return <PrivacyPolicy embedded />;
       case 'keyfacts': return <KeyFactsStatement />;
       default: return null;
@@ -1144,7 +1144,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
           <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardView} keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}>
             <View style={[styles.container, { backgroundColor: colors.background }]}>
-              <LinearGradient colors={["#0b5bd3", "#4f8ff7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.headerContainer}>
+              <LinearGradient colors={[...HOME_HERO_GRADIENT]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headerContainer}>
                 <Text style={[styles.title, { color: '#fff', fontSize: fontSizes.title }]}>Service Provider Registration</Text>
                 <TouchableOpacity style={styles.closeButton} onPress={() => onBackToLogin(true)}><Icon name="close" size={24} color="#fff" /></TouchableOpacity>
               </LinearGradient>

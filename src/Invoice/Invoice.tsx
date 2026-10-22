@@ -25,6 +25,7 @@ import providerInstance from '../services/providerInstance';
 import preferenceInstance from '../services/preferenceInstance';
 import { resolveCustomerId } from '../services/couponService';
 import { generateInvoicePdfBase64 } from './generateInvoicePdf';
+import { HOME_HERO_GRADIENT } from '../theme/brandColors';
 
 interface InvoiceProps {
   booking: any;
@@ -533,9 +534,9 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose, variant = 'full' })
   return (
     <View style={styles.fullScreen}>
       <LinearGradient
-        colors={["#062a61", "#3680f8"]}
+        colors={[...HOME_HERO_GRADIENT]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={[styles.headerGradient, { paddingTop: Math.max(insets.top, 12) }]}
       >
         <View style={styles.header}>

@@ -21,7 +21,7 @@ import TnC from "../TermsAndConditions/TnC";
 import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
 import { HomeHeroPageHeader } from "../common/HomeHeroPageHeader";
-import { HOME_M3 } from "../theme/brandColors";
+import { HOME_HERO_GRADIENT, HOME_M3 } from "../theme/brandColors";
 import { CouponDialog, Coupon } from '../Coupons/CouponDialog';
 import { fetchCustomerCoupons, resolveCustomerId } from '../services/couponService';
 import { useAppUser } from '../context/AppUserContext';
@@ -293,7 +293,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
   const renderPolicyContent = () => {
     switch (activePolicy) {
       case 'terms':
-        return <TnC />;
+        return <TnC scrollable={false} />;
       case 'privacy':
         return <PrivacyPolicy embedded />;
       case 'keyfacts':
@@ -344,9 +344,9 @@ export const CartDialog: React.FC<CartDialogProps> = ({
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
             <LinearGradient
-              colors={["#0b5bd3", "#4f8ff7"]}
+              colors={[...HOME_HERO_GRADIENT]}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.dialogHeader}
             >
               <View style={styles.headerContent}>

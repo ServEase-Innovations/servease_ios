@@ -1236,9 +1236,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             <View style={styles.backdropTapArea} />
           </TouchableWithoutFeedback>
           <View style={[styles.container, sheetInsetsStyle, { backgroundColor: isDarkMode ? colors.card : "#f8fafc" }]}>
-            <View style={styles.sheetHandleWrap}>
-              <View style={[styles.sheetHandleBar, { backgroundColor: colors.border }]} />
-            </View>
             <View style={styles.headerShell}>
               <LinearGradient
                 colors={[...HOME_HERO_GRADIENT]}
@@ -1247,6 +1244,9 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
               />
+              <View style={styles.sheetHandleWrap}>
+                <View style={styles.sheetHandleBar} />
+              </View>
               <View style={styles.headerToolbar}>
                 <View style={styles.headerSideBtn} />
                 <Text
@@ -1306,6 +1306,9 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             />
+            <View style={styles.sheetHandleWrap}>
+              <View style={styles.sheetHandleBar} />
+            </View>
             <View style={styles.headerToolbar}>
               <TouchableOpacity
                 style={styles.headerSideBtn}
@@ -1546,32 +1549,25 @@ const styles = StyleSheet.create({
   sheetHandleWrap: {
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 4,
-    paddingBottom: 4,
+    height: 24,
   },
   sheetHandleBar: {
-    width: 44,
-    height: 5,
-    borderRadius: 999,
-    opacity: 0.9,
-  },
-  sheetHandleBarLight: {
-    width: 48,
-    height: 5,
+    width: 40,
+    height: 4,
     borderRadius: 999,
     backgroundColor: "rgba(255,255,255,0.62)",
   },
   headerShell: {
     position: "relative",
     backgroundColor: HOME_M3.primary,
-    height: 60,
+    height: 64,
     justifyContent: "center",
     overflow: "hidden",
   },
   headerToolbar: {
     flexDirection: "row",
     alignItems: "center",
-    height: 30,
+    height: 40,
     paddingHorizontal: 8,
   },
   headerSideBtn: {

@@ -72,6 +72,8 @@ export const HOME_M3 = {
 } as const;
 
 export const HOME_HERO_GRADIENT = ["#00BFFF", "#0891B2"] as const; // Cyan gradient
+export const HOME_SERVICE_GRADIENT = ["#2F96EE", "#6CC1FA"] as const;
+export const HOME_SERVICE_INACTIVE_GRADIENT = ["#CBD5E1", "#94A3B8"] as const;
 
 /** MaidBtnPrimary gradient (135deg) */
 export const PRIMARY_BUTTON_GRADIENT = ["#00BFFF", "#06B6D4"] as const; // Cyan gradient

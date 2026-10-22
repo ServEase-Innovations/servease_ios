@@ -39,12 +39,12 @@ import MaidBookingDetailsSection, {
 } from "./MaidBookingDetailsSection";
 import {
   SERVICE_BOOKING_CONFIG,
-  BOOKING_HEADER_GRADIENT,
   computeDurationHours,
   isBookingScheduleComplete,
   loadServiceQuote,
   type ServiceBookingKind,
 } from "./serviceBookingConfig";
+import { HOME_HERO_GRADIENT } from "../theme/brandColors";
 import { buildQuoteBreakdown, type QuoteBreakdownRow } from "../utils/quoteBreakdown";
 import {
   appendPaymentFeeRows,
@@ -846,7 +846,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       <View style={styles.root}>
         {!hideHeader && (
           <LinearGradient
-            colors={[...BOOKING_HEADER_GRADIENT]}
+            colors={[...HOME_HERO_GRADIENT]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.header}

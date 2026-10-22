@@ -15,6 +15,7 @@ import { Chip, Button, IconButton } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../../src/Settings/ThemeContext';
+import { HOME_HERO_GRADIENT } from '../theme/brandColors';
 
 interface LanguageSelectorProps {
   selectedLanguages: string[];
@@ -365,9 +366,9 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
                 {/* Gradient Header */}
                 <View style={styles.modalHeader}>
                   <LinearGradient
-                    colors={["#0b5bd3", "#4f8ff7"]}
+                    colors={[...HOME_HERO_GRADIENT]}
                     start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
+                    end={{ x: 1, y: 1 }}
                     style={styles.gradientHeader}
                   >
                     <Text style={styles.modalTitle}>Select Languages</Text>

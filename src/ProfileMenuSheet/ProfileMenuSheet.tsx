@@ -19,6 +19,7 @@ import AgentRegistrationForm from "../Agent/AgentRegistrationForm";
 import LinearGradient from "react-native-linear-gradient";
 import { getMobileTabBarHeight } from "../Constants/mobileLayout";
 import ContactUs from "../ContactUs/ContactUs"; // Import the ContactUs component
+import { HOME_HERO_GRADIENT } from "../theme/brandColors";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DISMISS_DRAG = 72;
@@ -330,7 +331,7 @@ const ProfileMenuSheet: React.FC<Props> = ({
         >
           <View style={styles.headerShell}>
             <LinearGradient
-              colors={["#020617", "#0f2744", "#1d4ed8"]}
+              colors={[...HOME_HERO_GRADIENT]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.headerGradient}

@@ -44,7 +44,7 @@ import {
 import LinearGradient from "react-native-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../src/Settings/ThemeContext";
-import { BRAND, GRADIENTS, BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import { BRAND, GRADIENTS, HOME_HERO_GRADIENT } from "../theme/brandColors";
 import { useTranslation } from 'react-i18next';
 
 Geocoder.init(keys.api_key);
@@ -175,6 +175,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     latitude: number;
     longitude: number;
   } | null>(null);
+  const mapRef = useRef<MapView | null>(null);
   const [selectedPinAddress, setSelectedPinAddress] = useState("");
   const [isPinSelected, setIsPinSelected] = useState(false);
 
@@ -189,6 +190,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const userPickedLocationRef = useRef(false);
   const triedGpsForCustomerRef = useRef(false);
   const guestGpsStartedRef = useRef(false);
+  const mapCameraLatitude =
+    isPinSelected && selectedPinLocation
+      ? selectedPinLocation.latitude
+      : latitude;
+  const mapCameraLongitude =
+    isPinSelected && selectedPinLocation
+      ? selectedPinLocation.longitude
+      : longitude;
 
   const customerId = resolveCustomerId(appUser);
   const isAuthenticated = !!customerId;
@@ -362,6 +371,30 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       setLongitude(lng);
     }
   }, [geoLocationFromStore, geoLocationUpdatedAt]);
+
+  useEffect(() => {
+    if (
+      !open ||
+      mapCameraLatitude === null ||
+      mapCameraLongitude === null ||
+      !isValidCoordinates(mapCameraLatitude, mapCameraLongitude)
+    ) {
+      return;
+    }
+
+    mapRef.current?.animateCamera(
+      {
+        center: {
+          latitude: mapCameraLatitude,
+          longitude: mapCameraLongitude,
+        },
+        heading: 0,
+        pitch: 0,
+        zoom: 16,
+      },
+      { duration: 500 }
+    );
+  }, [open, mapCameraLatitude, mapCameraLongitude]);
 
   const createLocationData = (lat: number, lng: number, addr: string): LocationData => {
     return {
@@ -844,17 +877,29 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const handleMapPress = async (event: any) => {
     const { coordinate } = event.nativeEvent;
+    const requestId = ++locationRequestIdRef.current;
+    userPickedLocationRef.current = true;
     setSelectedPinLocation(coordinate);
+    setLatitude(coordinate.latitude);
+    setLongitude(coordinate.longitude);
+    setSelectedPinAddress("");
+    setAddress("");
     setIsPinSelected(true);
     setLocationMethod('manual');
-    
+
     try {
       const address = await getAddressFromCoords(coordinate.latitude, coordinate.longitude);
+      if (requestId !== locationRequestIdRef.current) {
+        return;
+      }
       setSelectedPinAddress(address);
       setAddress(address);
-      
+
       updateLocationInStore(coordinate.latitude, coordinate.longitude, address);
     } catch (error) {
+      if (requestId !== locationRequestIdRef.current) {
+        return;
+      }
       console.warn("Error getting address for selected pin:", error);
       setSelectedPinAddress(t('locationSelector.addressNotAvailable'));
       updateLocationInStore(coordinate.latitude, coordinate.longitude, t('locationSelector.addressNotAvailable'));
@@ -1231,19 +1276,27 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     const hasCoords = isValidCoordinates(regionLat, regionLng);
     const lat = hasCoords ? regionLat! : 12.9716;
     const lng = hasCoords ? regionLng! : 77.5946;
+    const camera = {
+      center: { latitude: Number(lat), longitude: Number(lng) },
+      heading: 0,
+      pitch: 0,
+      zoom: hasCoords ? 16 : 4,
+    };
 
     return (
       <View style={styles.autoMapContainer}>
         <MapView
+          key={`${lat.toFixed(6)}-${lng.toFixed(6)}`}
+          ref={mapRef}
           style={styles.map}
           provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
           showsUserLocation={true}
           showsMyLocationButton={true}
-          region={{
-            latitude: Number(lat),
-            longitude: Number(lng),
-            latitudeDelta: 0.008,
-            longitudeDelta: 0.008,
+          initialCamera={camera}
+          onMapReady={() => {
+            if (hasCoords) {
+              mapRef.current?.animateCamera(camera, { duration: 500 });
+            }
           }}
           onPress={options?.onPress}
           scrollEnabled={options?.scrollEnabled ?? false}
@@ -1251,7 +1304,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           rotateEnabled={false}
           pitchEnabled={false}
         >
-          {options?.showUserMarker !== false && hasCoords && (
+          {options?.showUserMarker !== false && hasCoords && !isPinSelected && (
             <Marker
               coordinate={{ latitude: regionLat!, longitude: regionLng! }}
               title={t('locationSelector.yourCurrentLocation')}
@@ -1269,7 +1322,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         {activeLocationMethod === 'auto' && (
           <TouchableOpacity
             style={[styles.smallRefreshButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={fetchLocationWithChecks}
+            onPress={() => fetchLocationWithChecks()}
           >
             <MaterialIcon name="refresh" size={16} color={colors.primary} />
           </TouchableOpacity>
@@ -1320,12 +1373,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       <View style={styles.autoLocationContent}>
         <View style={[styles.mapInstructions, { backgroundColor: colors.infoLight, borderLeftColor: colors.primary }]}>
           <Text style={[styles.instructionsText, { color: colors.primary, fontSize: fontSizes.instructionsText }]}>
-            {t('locationSelector.yourCurrentLocation')}
+            {t('locationSelector.tapOnMapToSelect', {
+              defaultValue: 'Tap on the map to select a location or search above',
+            })}
           </Text>
         </View>
 
         <View style={styles.mapPreviewWrap}>
-          {renderMapPreview(latitude, longitude)}
+          {renderMapPreview(latitude, longitude, {
+            onPress: handleMapPress,
+            showPinMarker: true,
+            scrollEnabled: true,
+          })}
           {showLoading && (
             <View style={styles.mapLoadingOverlay}>
               <ActivityIndicator size="large" color={colors.primary} />
@@ -2011,9 +2070,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         backgroundColor={BRAND.bookingNavy}
       />
       <LinearGradient
-        colors={[...BOOKING_HEADER_GRADIENT]}
+        colors={[...HOME_HERO_GRADIENT]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={[styles.locationModalHeader, { paddingTop: insets.top + 6 }]}
       >
         <View style={styles.locationModalHeaderRow}>

@@ -13,6 +13,7 @@ import { recipientParams } from "../Notifications/inAppNotificationUtils";
 import preferenceInstance from "../services/preferenceInstance";
 import { resolveCustomerId } from "../services/couponService";
 import { useAppUser } from "../context/AppUserContext";
+import { HOME_HERO_GRADIENT } from "../theme/brandColors";
 
 interface LocationData {
   formatted_address: string;
@@ -164,7 +165,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
         {/* Straight-edged gradient. With gradientBottomInset it ends above the
             container bottom so the search bar can straddle the edge. */}
         <LinearGradient
-          colors={["#2F96EE", "#6CC1FA"]}
+          colors={[...HOME_HERO_GRADIENT]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[

@@ -49,7 +49,7 @@ import { recipientParams } from "../Notifications/inAppNotificationUtils";
 import { addLocation, remove as clearGeoLocation } from "../features/geoLocationSlice";
 import Booking from "../UserProfile/Bookings";
 import { useTheme } from "../../src/Settings/ThemeContext";
-import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import { HOME_HERO_GRADIENT } from "../theme/brandColors";
 
 interface ChildComponentProps {
   sendDataToParent: (data: string) => void;
@@ -86,7 +86,7 @@ const Head: React.FC<ChildComponentProps> = ({
   onSignOutComplete,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
-  const chromeGradient = [...BOOKING_HEADER_GRADIENT];
+  const chromeGradient = [...HOME_HERO_GRADIENT];
   const {
     authorize,
     clearSession,

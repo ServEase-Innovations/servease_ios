@@ -1,4 +1,5 @@
 // Footer.tsx — premium gradient footer aligned with customer home (HOME_M3)
+// Responsive, full-width, and safe against text clipping on iOS / small Android.
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
@@ -14,7 +15,7 @@ import {
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
-import { HOME_M3 } from '../theme/brandColors';
+import { HOME_M3, HOME_HERO_GRADIENT } from '../theme/brandColors';
 import { useTheme } from '../Settings/ThemeContext';
 import TnC from '../TermsAndConditions/TnC';
 import { HomeHeroPageHeader } from '../common/HomeHeroPageHeader';
@@ -55,11 +56,6 @@ const SOCIAL_LABEL: Record<FooterSocialKey, string> = {
   facebook: 'Facebook',
 };
 
-const GRADIENT_LIGHT = ['#1E6FD9', '#2F96EE', '#6CC1FA'];
-const GRADIENT_DARK = ['#0B3A7A', '#145AA8', '#2F96EE'];
-const STRIPE_LIGHT = ['#6CC1FA', '#2F96EE', '#1E6FD9'];
-const STRIPE_DARK = ['#2F96EE', '#145AA8', '#0B3A7A'];
-
 const COMPANY_NAME = 'ServEase Innovation and Technology Private Limited';
 const ESTD_YEAR = 2024;
 
@@ -75,7 +71,15 @@ const getSocialUrl = (settings: FooterSettings, key: FooterSocialKey): string =>
   );
 };
 
-const Footer = () => {
+type FooterProps = {
+  /**
+   * Extra space added under the footer (e.g. height of a floating bottom tab bar)
+   * so the copyright stripe never hides behind it. Defaults to 0.
+   */
+  bottomOffset?: number;
+};
+
+const Footer = ({ bottomOffset = 0 }: FooterProps) => {
   const { width: screenWidth } = useWindowDimensions();
   const bottomInset = useBottomInset();
   const { colors, isDarkMode, fontSize } = useTheme();
@@ -96,10 +100,11 @@ const Footer = () => {
   const isCompact = screenWidth < 360; // small Androids, iPhone SE / mini
   const isWide = screenWidth >= 600; // large phones landscape, tablets, iPad
   const isXWide = screenWidth >= 900;
-  const maxContentWidth = 960;
+  const maxContentWidth = 1200;
   const hPad = isCompact ? 12 : isWide ? 24 : 16;
   const iconSize = isCompact ? 16 : 18;
   const brandSize = isCompact ? 20 : isWide ? 28 : 24;
+  const taglineSize = isCompact ? 12 : 13;
   const termsTitleSize = fontSize === 'large' ? 24 : fontSize === 'small' ? 18 : 20;
 
   // ---- Theme tokens -----------------------------------------------------
@@ -111,8 +116,9 @@ const Footer = () => {
   const iconBg = isDarkMode ? colors.surface : HOME_M3.secondaryFixed;
   const iconColor = isDarkMode ? colors.primary : HOME_M3.onSecondaryFixedVariant;
   const bandBg = isDarkMode ? colors.background : HOME_M3.surfaceContainerLow;
-  const gradient = isDarkMode ? GRADIENT_DARK : GRADIENT_LIGHT;
-  const stripe = isDarkMode ? STRIPE_DARK : STRIPE_LIGHT;
+
+  // Use the SAME gradient as the BookingDialog header (HOME_HERO_GRADIENT).
+  const gradient = [...HOME_HERO_GRADIENT];
 
   const helplineLabel = formatPhoneDisplay(footerSettings.helplinePhone);
   const joinUsLabel = formatPhoneDisplay(footerSettings.joinUsPhone);
@@ -163,7 +169,11 @@ const Footer = () => {
       <View
         style={[
           styles.wrap,
-          { backgroundColor: bandBg, paddingHorizontal: hPad, paddingBottom: Math.max(bottomInset, 12) },
+          {
+            backgroundColor: bandBg,
+            paddingHorizontal: hPad,
+            paddingBottom: Math.max(bottomInset, 12) + bottomOffset,
+          },
         ]}
       >
         <View style={[styles.inner, { maxWidth: maxContentWidth }]}>
@@ -178,30 +188,41 @@ const Footer = () => {
               },
             ]}
           >
-            {/* ----- Brand hero ----- */}
+            {/* ----- Brand hero -----
+                Uses the exact same gradient as the BookingDialog header.
+                Layout stacks vertically on compact screens so nothing is cut off. */}
             <LinearGradient
               colors={gradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[styles.brandGradient, isWide && styles.brandGradientWide]}
+              style={[
+                styles.brandGradient,
+                isWide && styles.brandGradientWide,
+                isCompact && styles.brandGradientCompact,
+              ]}
             >
-              {/* decorative orbs */}
+              {/* decorative orbs — clipped, they never affect layout height */}
               <View pointerEvents="none" style={[styles.orb, styles.orbOne]} />
               <View pointerEvents="none" style={[styles.orb, styles.orbTwo]} />
 
-              <View style={styles.logoRing}>
+              <View style={[styles.logoRing, isCompact && styles.logoRingCompact]}>
                 <Image
                   source={require('../../assets/images/iconlogo.png')}
-                  style={styles.logo}
+                  style={[styles.logo, isCompact && styles.logoCompact]}
                   resizeMode="contain"
                 />
               </View>
 
-              <View style={styles.brandCopy}>
-                <Text style={[styles.brandName, { fontSize: brandSize }]} numberOfLines={1}>
+              <View style={[styles.brandCopy, isCompact && styles.brandCopyCompact]}>
+                <Text
+                  style={[styles.brandName, { fontSize: brandSize }]}
+                  // No numberOfLines / adjustsFontSizeToFit: let it wrap fully so it is always visible.
+                >
                   ServEaso
                 </Text>
-                <Text style={styles.tagline}>Trusted home services, made easy</Text>
+                <Text style={[styles.tagline, { fontSize: taglineSize }]}>
+                  Trusted home services, made easy
+                </Text>
                 <View style={styles.estdBadge}>
                   <MaterialIcon name="workspace-premium" size={12} color="#FFFFFF" />
                   <Text style={styles.estdText}>Est. {ESTD_YEAR}</Text>
@@ -210,16 +231,14 @@ const Footer = () => {
             </LinearGradient>
 
             {/* ----- Highlight chips ----- */}
-            <View style={styles.chipRow}>
+            <View style={[styles.chipRow, isWide && styles.chipRowWide]}>
               {highlights.map((h) => (
                 <View
                   key={h.label}
                   style={[styles.chip, { backgroundColor: iconBg, borderColor: cardBorder }]}
                 >
                   <MaterialIcon name={h.icon} size={14} color={accentColor} />
-                  <Text style={[styles.chipText, { color: titleColor }]} numberOfLines={1}>
-                    {h.label}
-                  </Text>
+                  <Text style={[styles.chipText, { color: titleColor }]}>{h.label}</Text>
                 </View>
               ))}
             </View>
@@ -240,7 +259,10 @@ const Footer = () => {
                 <View style={styles.metaRow}>
                   <MaterialIcon name="business" size={14} color={mutedColor} />
                   <Text style={[styles.metaText, { color: mutedColor }]}>
-                    {yearsActive > 0 ? `${yearsActive}+ year${yearsActive > 1 ? 's' : ''} of service` : 'Newly launched'} · Since {ESTD_YEAR}
+                    {yearsActive > 0
+                      ? `${yearsActive}+ year${yearsActive > 1 ? 's' : ''} of service`
+                      : 'Newly launched'}{' '}
+                    · Since {ESTD_YEAR}
                   </Text>
                 </View>
               </View>
@@ -337,23 +359,37 @@ const Footer = () => {
           </View>
 
           {/* ===== Bottom gradient stripe ===== */}
-          <LinearGradient
-            colors={stripe}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.brandStripe}
+          <View
+            style={[
+              styles.brandStripe,
+              isXWide && styles.brandStripeWide,
+              {
+                backgroundColor: isDarkMode ? colors.surface : HOME_M3.surfaceContainerLow,
+                borderColor: cardBorder,
+              },
+            ]}
           >
-            <Text style={styles.stripeText}>
+            <Text style={[styles.stripeText, isXWide && styles.stripeTextWide, { color: titleColor }]}>
               © {ESTD_YEAR}
-              {year > ESTD_YEAR ? `–${year}` : ''} {COMPANY_NAME}
+              {year > ESTD_YEAR ? `–${year}` : ''}
             </Text>
-            <View style={styles.stripeMetaRow}>
-              <Text style={styles.stripeSub}>All rights reserved</Text>
+            <Text
+              style={[
+                styles.stripeText,
+                styles.stripeCompany,
+                isXWide && styles.stripeCompanyWide,
+                { color: mutedColor },
+              ]}
+            >
+              {COMPANY_NAME}
+            </Text>
+            <View style={[styles.stripeMetaRow, isXWide && styles.stripeMetaRowWide]}>
+              <Text style={[styles.stripeSub, { color: mutedColor }]}>All rights reserved</Text>
               <View style={styles.stripeDot} />
-              <MaterialIcon name="favorite" size={11} color="#FFFFFF" />
-              <Text style={styles.stripeSub}>Made in India</Text>
+              <MaterialIcon name="favorite" size={11} color={accentColor} />
+              <Text style={[styles.stripeSub, { color: mutedColor }]}>Made in India</Text>
             </View>
-          </LinearGradient>
+          </View>
         </View>
       </View>
 
@@ -382,20 +418,25 @@ const Footer = () => {
 };
 
 const styles = StyleSheet.create({
+  // Full-width band: stretches edge-to-edge on every device.
   wrap: {
     width: '100%',
     alignSelf: 'stretch',
-    alignItems: 'center',
+    alignItems: 'stretch',
     marginTop: 12,
     paddingTop: 16,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    flexShrink: 0,
   },
+  // Fills the band; only centres itself once maxWidth kicks in (tablets / iPad).
   inner: {
     width: '100%',
+    alignSelf: 'center',
   },
   card: {
     width: '100%',
+    alignSelf: 'stretch',
     borderRadius: 20,
     borderWidth: 1,
     padding: 14,
@@ -403,21 +444,36 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 3,
+    flexShrink: 0,
   },
 
-  // Brand hero
+  // Brand hero — matches the BookingDialog header gradient.
+  // Height is driven by content, never fixed, so nothing gets cut off.
+  // overflow:'hidden' only clips the decorative orbs, not the text.
   brandGradient: {
     width: '100%',
-    minHeight: 104,
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     borderRadius: 16,
-    padding: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
     overflow: 'hidden',
+    flexShrink: 0,
+    minHeight: 96,
   },
   brandGradientWide: {
-    minHeight: 120,
+    paddingVertical: 22,
     paddingHorizontal: 24,
+  },
+  // On compact screens, stack the logo above the copy so the title/tagline
+  // get the full width and are never shrunk or clipped.
+  brandGradientCompact: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    minHeight: 0,
   },
   orb: {
     position: 'absolute',
@@ -427,38 +483,62 @@ const styles = StyleSheet.create({
   orbOne: { width: 140, height: 140, top: -50, right: -30 },
   orbTwo: { width: 90, height: 90, bottom: -40, left: '38%' },
   logoRing: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 68,
+    height: 68,
+    borderRadius: 18,
     borderWidth: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    borderColor: 'rgba(255,255,255,0.65)',
+    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(255,255,255,0.8)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+    flexShrink: 0,
+  },
+  logoRingCompact: {
+    width: 54,
+    height: 54,
+    borderRadius: 15,
+    marginRight: 0,
+    marginBottom: 10,
   },
   logo: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+  },
+  logoCompact: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
   },
   brandCopy: {
     flex: 1,
+    flexShrink: 1,
     minWidth: 0,
+    paddingRight: 12, // buffer for the iOS bold/letter-spacing clipping bug
+  },
+  // Compact: take full width so text wraps and is fully visible.
+  brandCopyCompact: {
+    flex: 0,
+    width: '100%',
+    paddingRight: 0,
   },
   brandName: {
     color: '#FFFFFF',
     fontWeight: '800',
-    letterSpacing: -0.4,
     textShadowColor: 'rgba(0,0,0,0.15)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+    paddingRight: 2,
+    flexShrink: 0,
   },
   tagline: {
     color: 'rgba(255,255,255,0.92)',
-    fontSize: 13,
     fontWeight: '500',
     marginTop: 2,
+    flexShrink: 0,
+    alignSelf: 'stretch',
+    paddingRight: 4,
   },
   estdBadge: {
     alignSelf: 'flex-start',
@@ -472,6 +552,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.22)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.4)',
+    flexShrink: 0,
   },
   estdText: {
     color: '#FFFFFF',
@@ -487,6 +568,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 12,
     gap: 8,
+  },
+  chipRowWide: {
+    justifyContent: 'flex-start',
   },
   chip: {
     flexDirection: 'row',
@@ -555,6 +639,7 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     fontWeight: '500',
+    flexShrink: 1,
   },
 
   // Contact
@@ -649,31 +734,56 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Bottom stripe
+  // A separate neutral surface distinguishes the legal footer from the brand banner.
   brandStripe: {
+    alignSelf: 'stretch',
     width: '100%',
     marginTop: 12,
     borderRadius: 14,
+    borderWidth: 1,
     paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
+  },
+  brandStripeWide: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
   },
   stripeText: {
-    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 0.2,
     textAlign: 'center',
+    alignSelf: 'stretch',
+    paddingHorizontal: 4,
+    flexShrink: 1,
+  },
+  stripeTextWide: {
+    alignSelf: 'auto',
+  },
+  stripeCompany: {
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  stripeCompanyWide: {
+    flex: 1,
+    marginTop: 0,
+    marginHorizontal: 16,
   },
   stripeMetaRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     marginTop: 4,
   },
+  stripeMetaRowWide: {
+    marginTop: 0,
+  },
   stripeSub: {
-    color: 'rgba(255,255,255,0.9)',
     fontSize: 11,
     fontWeight: '500',
   },
@@ -681,7 +791,7 @@ const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: '#1E6FD9',
   },
 
   termsModalRoot: {

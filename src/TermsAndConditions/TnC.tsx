@@ -6,22 +6,28 @@ import {
   Text,
   StyleSheet,
   Linking,
-  TouchableOpacity
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
 
-const TnC = () => {
+interface TnCProps {
+  scrollable?: boolean;
+}
+
+const TnC: React.FC<TnCProps> = ({ scrollable = true }) => {
+  const { width } = useWindowDimensions();
   const openEmail = (email: string) => {
     Linking.openURL(`mailto:${email}`).catch(err => console.error("Couldn't load email client", err));
   };
 
-  return (
-    <ScrollView 
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      nestedScrollEnabled={true}
-      showsVerticalScrollIndicator={true}
+  const content = (
+    <View
+      style={[
+        styles.contentContainer,
+        { paddingHorizontal: width < 360 ? 10 : 16 },
+      ]}
     >
-      <View style={styles.paper}>
+      <View style={[styles.paper, { maxWidth: Math.min(width - (width < 360 ? 20 : 32), 900) }]}>
         <Text style={styles.title}>Terms and Conditions</Text>
         
         <Text style={styles.subtitle}>
@@ -306,6 +312,21 @@ const TnC = () => {
           </View>
         </View>
       </View>
+    </View>
+  );
+
+  if (!scrollable) {
+    return content;
+  }
+
+  return (
+    <ScrollView
+      style={styles.container}
+      nestedScrollEnabled
+      removeClippedSubviews={Platform.OS === 'android' ? false : undefined}
+      showsVerticalScrollIndicator
+    >
+      {content}
     </ScrollView>
   );
 }
@@ -316,10 +337,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   contentContainer: {
-    padding: 16,
     flexGrow: 1,
+    alignItems: 'center',
   },
   paper: {
+    width: '100%',
+    alignSelf: 'center',
     backgroundColor: 'white',
     borderRadius: 8,
     padding: 20,
@@ -335,6 +358,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 8,
+    color: '#111827',
   },
   subtitle: {
     fontSize: 16,
@@ -349,6 +373,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 12,
+    color: '#1F2937',
   },
   divider: {
     height: 1,
@@ -360,21 +385,28 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 24,
     marginBottom: 12,
+    color: '#111827',
   },
   list: {
-    marginLeft: 8,
+    marginLeft: 0,
   },
   listItem: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     marginBottom: 8,
   },
   bullet: {
-    marginRight: 8,
+    width: 20,
+    flexShrink: 0,
+    color: '#1F2937',
   },
   listText: {
     flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
     fontSize: 14,
     lineHeight: 20,
+    color: '#1F2937',
   },
   contactBox: {
     backgroundColor: '#f5f5f5',
@@ -393,9 +425,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 12,
+    color: '#92400E',
   },
   bold: {
     fontWeight: 'bold',
+    color: '#111827',
   },
   link: {
     color: '#1976d2',
