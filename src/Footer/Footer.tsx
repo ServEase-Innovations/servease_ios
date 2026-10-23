@@ -215,12 +215,26 @@ const Footer = ({ bottomOffset = 0 }: FooterProps) => {
 
               <View style={[styles.brandCopy, isCompact && styles.brandCopyCompact]}>
                 <Text
-                  style={[styles.brandName, { fontSize: brandSize }]}
+                  style={[
+                    styles.brandName,
+                    {
+                      fontSize: brandSize,
+                      lineHeight: Platform.OS === 'ios' ? brandSize * 1.25 : undefined,
+                    },
+                  ]}
                   // No numberOfLines / adjustsFontSizeToFit: let it wrap fully so it is always visible.
                 >
                   ServEaso
                 </Text>
-                <Text style={[styles.tagline, { fontSize: taglineSize }]}>
+                <Text
+                  style={[
+                    styles.tagline,
+                    {
+                      fontSize: taglineSize,
+                      lineHeight: Platform.OS === 'ios' ? taglineSize * 1.45 : undefined,
+                    },
+                  ]}
+                >
                   Trusted home services, made easy
                 </Text>
                 <View style={styles.estdBadge}>

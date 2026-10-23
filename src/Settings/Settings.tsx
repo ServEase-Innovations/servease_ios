@@ -844,6 +844,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
     letterSpacing: 0.7,
+    flexShrink: 1,
   },
   // ── Card ────────────────────────────────────────────────────────
   card: {
@@ -942,13 +943,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    maxWidth: '100%',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 14,
   },
   termsLink: {
     color: '#ffffff',
     fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   // ── Modals ──────────────────────────────────────────────────────
   modalOverlay: {
@@ -1205,9 +1209,9 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 10,
-    overflow: 'hidden',
+    maxWidth: '100%',
   },
   sectionHeaderMark: {
     width: 7,

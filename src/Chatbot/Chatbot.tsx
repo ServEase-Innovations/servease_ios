@@ -77,7 +77,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
   const socketRef = useRef<Socket | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const sheetHeight = useRef(new Animated.Value(0)).current;
-  const keyboardOffset = useRef(new Animated.Value(0)).current;
   const dragStartHeight = useRef(SHEET_DEFAULT);
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
@@ -101,38 +100,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
   useEffect(() => {
     scrollToEnd();
   }, [messages, showAccordion, expandedFaq, scrollToEnd]);
-
-  useEffect(() => {
-    if (Platform.OS !== 'ios') {
-      keyboardOffset.setValue(0);
-      return;
-    }
-
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, (event) => {
-      const nextOffset = Math.max(0, event.endCoordinates.height - insets.bottom);
-      Animated.timing(keyboardOffset, {
-        toValue: -nextOffset,
-        duration: event.duration ?? 250,
-        useNativeDriver: false,
-      }).start();
-    });
-
-    const hideSub = Keyboard.addListener(hideEvent, (event) => {
-      Animated.timing(keyboardOffset, {
-        toValue: 0,
-        duration: event.duration ?? 200,
-        useNativeDriver: false,
-      }).start();
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [insets.bottom, keyboardOffset]);
 
   const resetChat = useCallback(() => {
     setChatOpen(false);
@@ -401,7 +368,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
             styles.sheet,
             {
               height: sheetHeight,
-              transform: [{ translateY: keyboardOffset }],
             },
           ]}
         >
@@ -452,7 +418,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
             <KeyboardAvoidingView
               style={styles.body}
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+              keyboardVerticalOffset={0}
             >
             <ScrollView
               ref={scrollViewRef}

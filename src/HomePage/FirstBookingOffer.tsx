@@ -199,6 +199,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   couponList: {
+    width: "100%",
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
@@ -206,7 +207,8 @@ const styles = StyleSheet.create({
   },
   couponChip: {
     flexGrow: 1,
-    flexBasis: "46%",
+    flexBasis: Platform.OS === "ios" ? 0 : "46%",
+    flexShrink: Platform.OS === "ios" ? 1 : 0,
     minWidth: 0,
     alignItems: "center",
     justifyContent: "center",
