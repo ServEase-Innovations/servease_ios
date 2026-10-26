@@ -16,7 +16,6 @@ import { useDispatch } from "react-redux";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { add } from "../features/bookingTypeSlice";
 import { DETAILS } from "../Constants/pagesConstants";
-import { getMobileTabBarHeight } from "../Constants/mobileLayout";
 import LinearGradient from "react-native-linear-gradient";
 import { useAuth0 } from "react-native-auth0";
 import { useAppUser } from "../context/AppUserContext";
@@ -28,7 +27,7 @@ import {
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useTheme } from "../Settings/ThemeContext";
 import {
-  HOME_HERO_GRADIENT,
+  HOME_PAGE_GRADIENT,
   HOME_M3,
   HOME_SERVICE_INACTIVE_GRADIENT,
 } from "../theme/brandColors";
@@ -173,7 +172,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
       whiteContentSection: {
         backgroundColor: sheetBg,
         paddingHorizontal: contentPadding,
-        paddingTop: 8,
       },
     };
   }, [colors, contentPadding, sheetBg]);
@@ -354,7 +352,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
           colors={
             isInactive
               ? [...HOME_SERVICE_INACTIVE_GRADIENT]
-              : [...HOME_HERO_GRADIENT]
+              : [...HOME_PAGE_GRADIENT]
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
@@ -394,10 +392,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
       <ScrollView
         ref={scrollRef}
         style={[dynamicStyles.container, { backgroundColor: sheetBg }]}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: getMobileTabBarHeight(insets.bottom) + 24 },
-        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header: straight-edged blue gradient with the search bar straddling its bottom edge */}
@@ -406,6 +400,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
             closeDropdowns={closeDropdowns}
             onLogoPress={onLogoClick}
             topPadding={8}
+            gradientColors={HOME_PAGE_GRADIENT}
             gradientBottomInset={GRADIENT_BOTTOM_INSET}
           >
             {/* Hero Title + Illustration */}
@@ -726,7 +721,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
       {/* Gradient cover behind the status bar so scrolled content never shows through the clock/battery */}
       {insets.top > 0 ? (
         <LinearGradient
-          colors={[...HOME_HERO_GRADIENT]}
+          colors={[...HOME_PAGE_GRADIENT]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           pointerEvents="none"
@@ -757,7 +752,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
 };
 
 const styles = StyleSheet.create({
-  scrollContent: { paddingBottom: 24 },
   siteFooterWrap: { alignSelf: "stretch", marginTop: 8 },
 
   statusBarCover: {

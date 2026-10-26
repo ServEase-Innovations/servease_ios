@@ -31,6 +31,7 @@ type HomeHeroChromeProps = {
   /** Tighter header for SP tab screens (hides location row). */
   compact?: boolean;
   topPadding?: number;
+  gradientColors?: readonly string[];
   /**
    * When set, the blue gradient stops this many px above the bottom of the
    * header container (straight edge, no curve). Children placed at the end of
@@ -46,6 +47,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
   onLogoPress,
   compact = false,
   topPadding = 0,
+  gradientColors = HOME_HERO_GRADIENT,
   gradientBottomInset,
   children,
 }) => {
@@ -167,7 +169,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
         {/* Straight-edged gradient. With gradientBottomInset it ends above the
             container bottom so the search bar can straddle the edge. */}
         <LinearGradient
-          colors={[...HOME_HERO_GRADIENT]}
+          colors={[...gradientColors]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[

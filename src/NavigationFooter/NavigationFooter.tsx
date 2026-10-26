@@ -29,7 +29,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from "../Settings/ThemeContext";
 import { useAppUser } from "../context/AppUserContext";
 import LoginDrawer from "../LoginDrawer/LoginDrawer";
-import { HOME_HERO_GRADIENT } from "../theme/brandColors";
+import { HOME_PAGE_GRADIENT } from "../theme/brandColors";
 
 type MobileTab = {
   key: string;
@@ -588,7 +588,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     return (
       <>
         <LinearGradient
-          colors={[...HOME_HERO_GRADIENT]}
+          colors={[...HOME_PAGE_GRADIENT]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[
