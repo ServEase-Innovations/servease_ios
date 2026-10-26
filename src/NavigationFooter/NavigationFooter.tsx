@@ -29,7 +29,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from "../Settings/ThemeContext";
 import { useAppUser } from "../context/AppUserContext";
 import LoginDrawer from "../LoginDrawer/LoginDrawer";
-import { HOME_M3 } from "../theme/brandColors";
+import { HOME_HERO_GRADIENT } from "../theme/brandColors";
 
 type MobileTab = {
   key: string;
@@ -580,7 +580,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       });
     }
 
-    const navSurface = isDarkMode ? colors.card : "#ffffff";
     const navBorder = isDarkMode ? colors.border : "#e2e8f0";
     const textMuted = "rgba(255,255,255,0.7)";
     const textActiveColor = "#00BFFF"; // Cyan for active text
@@ -588,11 +587,13 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 
     return (
       <>
-        <View
+        <LinearGradient
+          colors={[...HOME_HERO_GRADIENT]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
           style={[
             styles.mobileNavShell,
             {
-              backgroundColor: '#00BFFF', // Cyan background
               borderTopColor: navBorder,
               paddingTop: MOBILE_TAB_BAR_TOP_PAD,
               paddingBottom: bottomPad,
@@ -645,7 +646,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
               );
             })}
           </View>
-        </View>
+        </LinearGradient>
 
         <NotificationsDialog visible={showNotifications} onClose={() => setShowNotifications(false)} />
         <ProfileMenuSheet

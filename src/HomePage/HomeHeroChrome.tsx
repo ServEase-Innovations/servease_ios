@@ -30,6 +30,7 @@ type HomeHeroChromeProps = {
   onLogoPress?: () => void;
   /** Tighter header for SP tab screens (hides location row). */
   compact?: boolean;
+  topPadding?: number;
   /**
    * When set, the blue gradient stops this many px above the bottom of the
    * header container (straight edge, no curve). Children placed at the end of
@@ -44,6 +45,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
   closeDropdowns = false,
   onLogoPress,
   compact = false,
+  topPadding = 0,
   gradientBottomInset,
   children,
 }) => {
@@ -167,7 +169,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
         <LinearGradient
           colors={[...HOME_HERO_GRADIENT]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 1, y: 0 }}
           style={[
             StyleSheet.absoluteFillObject,
             hasInset ? { bottom: gradientBottomInset } : null,
@@ -177,7 +179,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
           style={[
             styles.topRow,
             compact && styles.topRowCompact,
-            { paddingTop: Math.max(insets.top, compact ? 6 : 10) },
+            { paddingTop: Math.max(insets.top, compact ? 6 : 10) + topPadding },
           ]}
         >
           <TouchableOpacity

@@ -30,7 +30,6 @@ import { useTheme } from "../Settings/ThemeContext";
 import {
   HOME_HERO_GRADIENT,
   HOME_M3,
-  HOME_SERVICE_GRADIENT,
   HOME_SERVICE_INACTIVE_GRADIENT,
 } from "../theme/brandColors";
 import HomeHeroChrome from "./HomeHeroChrome";
@@ -355,10 +354,10 @@ const HomePage: React.FC<ChildComponentProps> = ({
           colors={
             isInactive
               ? [...HOME_SERVICE_INACTIVE_GRADIENT]
-              : [...HOME_SERVICE_GRADIENT]
+              : [...HOME_HERO_GRADIENT]
           }
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 1, y: 0 }}
           style={StyleSheet.absoluteFillObject}
         />
         <View style={styles.iconCardImageBox}>
@@ -406,6 +405,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
           <HomeHeroChrome
             closeDropdowns={closeDropdowns}
             onLogoPress={onLogoClick}
+            topPadding={8}
             gradientBottomInset={GRADIENT_BOTTOM_INSET}
           >
             {/* Hero Title + Illustration */}
@@ -723,9 +723,12 @@ const HomePage: React.FC<ChildComponentProps> = ({
         </View>
       </ScrollView>
 
-      {/* Solid cover behind the iOS status bar so scrolled content never shows through the clock/battery */}
+      {/* Gradient cover behind the status bar so scrolled content never shows through the clock/battery */}
       {insets.top > 0 ? (
-        <View
+        <LinearGradient
+          colors={[...HOME_HERO_GRADIENT]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
           pointerEvents="none"
           style={[styles.statusBarCover, { height: insets.top }]}
         />
@@ -762,7 +765,6 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: HOME_HERO_GRADIENT[0],
     zIndex: 3000,
   },
 
@@ -782,7 +784,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    marginTop: 12,
+    marginTop: 0,
     minHeight: 150,
   },
   heroIllustration: {
