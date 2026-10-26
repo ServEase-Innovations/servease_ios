@@ -26,7 +26,7 @@ import axios from "axios";
 import { keys } from "../env";
 import axiosInstance from "../services/axiosInstance";
 import CustomFileInput from "./CustomFileInput";
-import AddressComponent from "./AddressComponent";
+import AddressComponent, { type AddressData } from "./AddressComponent";
 import { TermsCheckboxes } from "../common/TermsCheckboxes";
 import { debounce } from "../utils/debounce";
 import { useFieldValidation } from "./useFieldValidation";
@@ -916,17 +916,14 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
     }
   };
 
-  const handleAddressChange = async (type: 'permanent' | 'correspondence', data: any) => {
-    const newFormData = {
-      ...formData,
-      [type === 'permanent' ? 'permanentAddress' : 'correspondenceAddress']: data
-    };
-    
-    if (isSameAddress && type === 'permanent') {
-      newFormData.correspondenceAddress = data;
-    }
-    
-    setFormData(newFormData);
+  const handleAddressChange = async (type: 'permanent' | 'correspondence', data: AddressData) => {
+    setFormData(prev => ({
+      ...prev,
+      [type === 'permanent' ? 'permanentAddress' : 'correspondenceAddress']: data,
+      ...(type === 'permanent' && isSameAddress
+        ? { correspondenceAddress: data }
+        : {}),
+    }));
 
     if (type === 'permanent') {
       setErrors(prev => ({
@@ -1449,7 +1446,8 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
     latitude: number,
     longitude: number,
     address: string,
-    addressComponents: any[]
+    addressComponents: any[],
+    copyToCorrespondence = isSameAddress
   ) => {
     const parsedAddress = parseAddressComponents(addressComponents);
 
@@ -1499,7 +1497,7 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
         ...prev.permanentAddress,
         ...addressData,
       };
-      const newCorrespondenceAddress = isSameAddress
+      const newCorrespondenceAddress = copyToCorrespondence
         ? newPermanentAddress
         : prev.correspondenceAddress;
 
@@ -1542,7 +1540,7 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
     const { lat, lng, locationData } = pendingMapSelection;
     const address = locationData?.formatted_address || "";
     const components = locationData?.address_components || [];
-    applyAddressFromGeocode(lat, lng, address, components);
+    applyAddressFromGeocode(lat, lng, address, components, true);
     setIsSameAddress(true);
     setMapPickerOpen(false);
     setPendingMapSelection(null);

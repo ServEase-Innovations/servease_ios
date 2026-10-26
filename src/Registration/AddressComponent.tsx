@@ -329,11 +329,6 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
   const handlePermanentAddressChange = (field: keyof AddressData, value: string) => {
     const newAddress = { ...permanentAddress, [field]: value };
     onAddressChange('permanent', newAddress);
-
-    if (isSameAddress && field !== 'state') {
-      // Don't auto-copy state if it's being cleared due to country change
-      onAddressChange('correspondence', { ...newAddress, state: newAddress.state });
-    }
   };
 
   const handleCorrespondenceAddressChange = (field: keyof AddressData, value: string) => {
@@ -347,11 +342,9 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
       onSameAddressToggle(checked);
     } else {
       setInternalIsSameAddress(checked);
-    }
-
-    if (checked) {
-      // Copy permanent → correspondence
-      onAddressChange('correspondence', { ...permanentAddress });
+      if (checked) {
+        onAddressChange('correspondence', { ...permanentAddress });
+      }
     }
   };
 
@@ -364,11 +357,6 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
         state: '' // Clear state when country changes
       };
       onAddressChange('permanent', newAddress);
-      
-      // If same address is checked, also update correspondence
-      if (isSameAddress) {
-        onAddressChange('correspondence', { ...newAddress });
-      }
     } else {
       // Create new address with selected country and cleared state
       const newAddress = { 
@@ -389,11 +377,6 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
       // Create new address with selected state
       const newAddress = { ...permanentAddress, state: state.name };
       onAddressChange('permanent', newAddress);
-      
-      // If same address is checked, also update correspondence
-      if (isSameAddress) {
-        onAddressChange('correspondence', { ...newAddress });
-      }
     } else {
       // Create new address with selected state
       const newAddress = { ...correspondenceAddress, state: state.name };
