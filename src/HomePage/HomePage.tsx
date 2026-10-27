@@ -1,14 +1,15 @@
 import React, { useMemo, useState, useRef } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
   Alert,
   useWindowDimensions,
   Animated,
+  Text as NativeText,
   TextInput,
+  type TextProps,
   Linking,
   Image,
 } from "react-native";
@@ -58,6 +59,10 @@ const SEARCH_HEIGHT = 58;
 const SEARCH_BOTTOM_PAD = 14;
 // Gradient ends at the vertical middle of the search bar
 const GRADIENT_BOTTOM_INSET = SEARCH_HEIGHT / 2 + SEARCH_BOTTOM_PAD;
+
+const Text = (props: TextProps) => (
+  <NativeText {...props} allowFontScaling={false} />
+);
 
 const HERO_FEATURE_CHIPS = [
   { key: "trusted", icon: "check-circle-outline", label: "Trusted Pros" },
@@ -438,6 +443,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 <Icon name="search" size={24} color={HOME_M3.outline} style={styles.searchIcon} />
                 <TextInput
                   style={[styles.searchInput, { color: colors.text }]}
+                  allowFontScaling={false}
                   placeholder="Find a cook, maid, or cleaner..."
                   placeholderTextColor={HOME_M3.outline}
                   value={searchQuery}
