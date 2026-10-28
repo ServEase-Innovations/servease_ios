@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, StyleSheet, View } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import LinearGradient from "react-native-linear-gradient";
 
 type BrandLoadingScreenProps = {

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
 import LinearGradient from 'react-native-linear-gradient';

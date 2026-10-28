@@ -1,10 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Image, 
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
   Alert,
   Dimensions,
   useWindowDimensions,
@@ -12,6 +11,7 @@ import {
   Modal,
   InteractionManager,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import LinearGradient from 'react-native-linear-gradient';
 import moment from "moment";
 import Icon from 'react-native-vector-icons/MaterialIcons';

@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		DFE4A1A7B3C6490E8A3F4C52 /* Inter.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DFE4A1A6B3C6490E8A3F4C52 /* Inter.ttf */; };
+		E4F6A2B8C0D14277A9B35E1B /* OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = E4F6A2B8C0D14277A9B35E1A /* OFL.txt */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		7AB257E118188DEA2972FD87 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
@@ -18,6 +20,8 @@
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* Serveaso.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Serveaso.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Serveaso/Images.xcassets; sourceTree = "<group>"; };
+		DFE4A1A6B3C6490E8A3F4C52 /* Inter.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = Inter.ttf; path = ../assets/fonts/Inter.ttf; sourceTree = "<group>"; };
+		E4F6A2B8C0D14277A9B35E1A /* OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = OFL.txt; path = ../assets/fonts/OFL.txt; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Serveaso/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = Serveaso/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		13B07FB91A68108700A75B9B /* Serveaso.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = Serveaso.entitlements; path = Serveaso/Serveaso.entitlements; sourceTree = "<group>"; };
@@ -48,6 +52,8 @@
 			isa = PBXGroup;
 			children = (
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
+				DFE4A1A6B3C6490E8A3F4C52 /* Inter.ttf */,
+				E4F6A2B8C0D14277A9B35E1A /* OFL.txt */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				13B07FB91A68108700A75B9B /* Serveaso.entitlements */,
@@ -174,6 +180,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DFE4A1A7B3C6490E8A3F4C52 /* Inter.ttf in Resources */,
+				E4F6A2B8C0D14277A9B35E1B /* OFL.txt in Resources */,
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				D1256F612F16AFF80088502F /* GoogleService-Info.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,

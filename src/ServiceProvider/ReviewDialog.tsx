@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   ScrollView,
@@ -11,6 +10,7 @@ import {
   RefreshControl,
   Alert,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import StarIcon from "react-native-vector-icons/FontAwesome";
 import { BRAND } from "../theme/brandColors";

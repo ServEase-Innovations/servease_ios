@@ -8,9 +8,9 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
 } from 'react-native';
+import { Text } from '../../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/Feather';
 import dayjs from 'dayjs';
 

@@ -2,12 +2,12 @@
 import React from 'react';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   Linking,
   TouchableOpacity,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 

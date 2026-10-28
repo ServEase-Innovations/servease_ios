@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
   ScrollView,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import dayjs, { Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";

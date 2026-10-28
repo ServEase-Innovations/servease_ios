@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
+import { View, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import { BRAND } from "../theme/brandColors";
 

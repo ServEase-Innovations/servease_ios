@@ -1,12 +1,12 @@
 import React from "react";
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useTheme } from "../Settings/ThemeContext";
 import { BrandButton } from "../design-system/BrandButton";

@@ -6,13 +6,13 @@ import {
   Alert,
   StyleSheet,
   Dimensions,
-  Text,
   PanResponder,
   GestureResponderEvent,
   PanResponderGestureState,
   Animated,
   ActivityIndicator,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Portal } from 'react-native-paper';
 

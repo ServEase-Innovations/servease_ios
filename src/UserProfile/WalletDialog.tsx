@@ -2,7 +2,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -10,9 +9,9 @@ import {
   Alert,
   RefreshControl,
   BackHandler,
-  TextInput,
   StatusBar,
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

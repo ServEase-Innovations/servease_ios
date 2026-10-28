@@ -2,8 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   Linking,
@@ -12,6 +10,7 @@ import {
   BackHandler,
   ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

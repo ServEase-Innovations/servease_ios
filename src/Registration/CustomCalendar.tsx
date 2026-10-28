@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   FlatList,
   Modal,
   ScrollView,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import moment from 'moment';
 

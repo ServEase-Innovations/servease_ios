@@ -2,10 +2,10 @@ import React, { useMemo } from 'react';
 import {
   ScrollView,
   View,
-  Text,
   StyleSheet,
   Linking,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '../Settings/ThemeContext';
 import { HOME_M3 } from '../theme/brandColors';

@@ -9,11 +9,11 @@ import React, {
 } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import dayjs, { Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import Icon from 'react-native-vector-icons/MaterialIcons';

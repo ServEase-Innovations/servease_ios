@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
+import { View, Button, Alert, StyleSheet } from 'react-native';
+import { Text, TextInput } from './theme/BrandTypography';
 import RazorpayCheckout from 'react-native-razorpay';
 import axios from 'axios';
 import { REACT_APP_RAZORPAY_KEY } from '@env';

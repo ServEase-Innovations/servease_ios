@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
+import { Text } from "../theme/BrandTypography";
 
 /** Prefer today's service_days.status over stale engagements.task_status. */
 export function effectiveProviderTaskStatus(

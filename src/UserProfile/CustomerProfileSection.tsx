@@ -2,8 +2,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
   View,
-  Text,
-  TextInput,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -15,6 +13,7 @@ import {
   Platform,
   Keyboard,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/userStore";
 import { setHasMobileNumber } from "../features/customerSlice";

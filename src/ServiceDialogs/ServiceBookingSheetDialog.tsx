@@ -8,8 +8,8 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   Dimensions,
-  Text,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDispatch } from "react-redux";

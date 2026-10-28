@@ -3,13 +3,13 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Text,
   ActivityIndicator,
   StatusBar,
   Platform,
   Image,
   InteractionManager,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import MapView, { Marker, Polyline, Region, PROVIDER_GOOGLE } from 'react-native-maps';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getLocationUpdate, calculateETA } from '../services/trackingService';

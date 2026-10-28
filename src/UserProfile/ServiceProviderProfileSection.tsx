@@ -1,10 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   Switch,
   Alert,
@@ -13,6 +11,7 @@ import {
   Platform,
   Dimensions,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';

@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
@@ -12,6 +11,7 @@ import {
   Pressable,
   SafeAreaView,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import Icon from "react-native-vector-icons/FontAwesome";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import FeatherIcon from "react-native-vector-icons/Feather";

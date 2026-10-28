@@ -2,7 +2,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
-  Text,
   Image,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
   Animated,
   BackHandler,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth0 } from "react-native-auth0";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";

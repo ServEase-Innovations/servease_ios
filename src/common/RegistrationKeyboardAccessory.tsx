@@ -4,10 +4,10 @@ import {
   Keyboard,
   Platform,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 
 export const REGISTRATION_KEYBOARD_ACCESSORY_ID = "registration-keyboard-accessory";
 

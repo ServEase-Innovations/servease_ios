@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Dimensions,
   TouchableOpacity,
@@ -9,6 +8,7 @@ import {
   Animated,
   Image,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { HOME_M3, HOME_HERO_GRADIENT } from '../theme/brandColors';

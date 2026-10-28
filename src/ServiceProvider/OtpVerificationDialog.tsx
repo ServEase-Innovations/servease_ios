@@ -2,11 +2,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   Pressable,
-  TextInput,
   StyleSheet,
   ActivityIndicator,
   Platform,
@@ -19,6 +17,7 @@ import {
   Vibration,
   Alert,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { Portal } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

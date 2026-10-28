@@ -2,14 +2,13 @@
 import React, { useCallback } from "react";
 import {
   View,
-  Text,
-  TextInput,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Modal,
   FlatList,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { registrationKeyboardInputProps } from "../common/RegistrationKeyboardAccessory";
 

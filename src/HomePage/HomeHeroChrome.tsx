@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Animated, Platform } from "react-native";
+import { FONT_FAMILY, Text } from "../theme/BrandTypography";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import LinearGradient from "react-native-linear-gradient";
@@ -280,7 +281,8 @@ const styles = StyleSheet.create({
   wordmark: {
     color: "#FFFFFF",
     fontSize: 34,
-    fontWeight: "900",
+    fontFamily: FONT_FAMILY,
+    fontWeight: "800",
     letterSpacing: -1,
   },
   wordmarkCompact: {

@@ -2,13 +2,12 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   Modal,
   ScrollView,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import AvailabilityPicker from "../common/AvailabilityPicker/AvailabilityPicker";
 import { registrationKeyboardInputProps } from "../common/RegistrationKeyboardAccessory";

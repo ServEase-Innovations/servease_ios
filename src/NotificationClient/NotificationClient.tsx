@@ -2,13 +2,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Modal,
   TouchableOpacity,
   ScrollView,
   Alert,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 
 const SERVICE_PROVIDER_ID = '202'; // ✅ Replace dynamically if needed
 

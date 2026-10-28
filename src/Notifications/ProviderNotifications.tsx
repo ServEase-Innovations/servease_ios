@@ -1,6 +1,7 @@
 /* eslint-disable */
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ScrollView } from "react-native";
+import { View, StyleSheet, TouchableOpacity, FlatList, Alert, ScrollView } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import { io, Socket } from "socket.io-client";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import axios from "axios";

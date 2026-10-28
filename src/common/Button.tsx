@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, ViewStyle, TextStyle, TouchableOpacityProps, StyleSheet } from "react-native";
+import { View, ViewStyle, TextStyle, TouchableOpacityProps, StyleSheet } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import { BrandButton, BrandButtonVariant, BrandButtonSize } from "../design-system/BrandButton";
 import { BRAND } from "../theme/brandColors";
 import { useTheme } from "../Settings/ThemeContext";

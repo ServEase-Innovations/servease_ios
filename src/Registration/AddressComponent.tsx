@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -11,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import axios from 'axios';
 import { useTheme } from "../../src/Settings/ThemeContext";

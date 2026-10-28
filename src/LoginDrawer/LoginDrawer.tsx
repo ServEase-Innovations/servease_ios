@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Pressable,
@@ -10,13 +9,13 @@ import {
   Dimensions,
   Modal,
   Easing,
-  TextInput,
   ActivityIndicator,
   Keyboard,
   Platform,
   ScrollView,
   type KeyboardEvent,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";

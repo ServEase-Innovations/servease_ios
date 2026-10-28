@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import { useTranslation } from 'react-i18next';
 import providerInstance from '../services/providerInstance';
 import AsyncStorage from '@react-native-async-storage/async-storage';

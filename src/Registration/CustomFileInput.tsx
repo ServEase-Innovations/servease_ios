@@ -1,13 +1,13 @@
 import React from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   Image,
   Alert,
   StyleSheet,
   Platform,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Button } from '../common/Button';
 import { useTranslation } from 'react-i18next';

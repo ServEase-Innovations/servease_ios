@@ -3,12 +3,12 @@ import React from 'react';
 import {
   ScrollView,
   View,
-  Text,
   StyleSheet,
   Linking,
   Platform,
   useWindowDimensions,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 
 interface TnCProps {
   scrollable?: boolean;

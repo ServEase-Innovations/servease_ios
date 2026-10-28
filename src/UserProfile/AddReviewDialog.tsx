@@ -2,14 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
-  TextInput,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import { X, Star } from 'lucide-react-native';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import { useAppUser } from '../context/AppUserContext';

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   ScrollView,
@@ -9,6 +8,7 @@ import {
   ActivityIndicator,
   Platform,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import Icon from "react-native-vector-icons/Feather";
 import dayjs, { Dayjs } from "dayjs";
 import { useTranslation } from "react-i18next";

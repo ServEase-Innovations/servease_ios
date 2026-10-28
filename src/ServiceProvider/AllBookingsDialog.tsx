@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   Modal,
   ScrollView,
@@ -10,10 +9,10 @@ import {
   Alert,
   Linking,
   ActivityIndicator,
-  TextInput,
   RefreshControl,
   SafeAreaView,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import LinearGradient from "react-native-linear-gradient";
 import Snackbar from 'react-native-snackbar';

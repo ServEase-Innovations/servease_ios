@@ -1,13 +1,13 @@
 import React from 'react';
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import { useTranslation } from 'react-i18next';
 
 interface ConfirmationDialogProps {

@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import {
   Modal,
   View,
-  Text,
   Linking,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   Pressable
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 // import { Button } from './Button'; // Your custom button
 

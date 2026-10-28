@@ -2,8 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   Modal,
@@ -12,6 +10,7 @@ import {
   StyleSheet,
   Dimensions
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { SkeletonLoader } from '../common/SkeletonLoader';
 import LinearGradient from 'react-native-linear-gradient';

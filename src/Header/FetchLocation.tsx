@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   Modal,
   Button,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Geolocation from '@react-native-community/geolocation';
 import Geocoder from 'react-native-geocoding';

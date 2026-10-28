@@ -69,6 +69,7 @@
 	<string>Serveaso needs camera access so you can take photos for your profile and service bookings.</string>
 	<key>UIAppFonts</key>
 	<array>
+		<string>Inter.ttf</string>
 		<string>Feather.ttf</string>
 		<string>FontAwesome.ttf</string>
 		<string>MaterialCommunityIcons.ttf</string>

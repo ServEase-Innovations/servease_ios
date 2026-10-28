@@ -4,11 +4,9 @@
 import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   Alert,
   Pressable,
@@ -24,6 +22,7 @@ import {
   InteractionManager,
   StatusBar,
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth0 } from 'react-native-auth0';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';

@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   View,
-  Text,
   Image,
-  TextInput,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -14,6 +12,7 @@ import {
   BackHandler,
   StatusBar,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Picker } from "@react-native-picker/picker";
 import { useAuth0 } from "react-native-auth0";

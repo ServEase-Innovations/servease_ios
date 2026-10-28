@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, View } from 'react-native';
+import { TouchableOpacity, ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { checkTrackingAvailability } from '../services/trackingService';
 

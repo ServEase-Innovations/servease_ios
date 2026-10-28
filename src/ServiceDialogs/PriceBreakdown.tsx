@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import { View, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import type { QuoteBreakdownRow } from "../utils/quoteBreakdown";
 import { formatInr } from "../utils/maidPricingUtils";

@@ -1,11 +1,11 @@
 import React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import { effectiveProviderTaskStatus } from "../common/BookingUtils";
 import { BRAND, HOME_M3 } from "../theme/brandColors";

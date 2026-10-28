@@ -3,8 +3,6 @@ import {
   SafeAreaView,
   ScrollView,
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -13,6 +11,7 @@ import {
   FlatList,
   RefreshControl,
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import providerInstance from '../services/providerInstance';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import { useAuth0 } from "react-native-auth0";

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
@@ -15,6 +14,7 @@ import {
   PanResponder,
   Vibration,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import Snackbar from "react-native-snackbar";

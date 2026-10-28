@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import { BrandButton } from "../design-system/BrandButton";
 import { BRAND } from "../theme/brandColors";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";

@@ -1,6 +1,7 @@
 // NotificationButton.tsx
 import React from 'react';
-import { View, TouchableOpacity, Text, Alert } from 'react-native';
+import { View, TouchableOpacity, Alert } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
 const publicVapidKey = 'BO0fj8ZGgK5NOd9lv0T0E273Uh4VptN2d8clBns7aOBusDGbIh_ZIyQ8W8C-WViT1bdJlr0NkEozugQQqj8_nTo';

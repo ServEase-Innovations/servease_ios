@@ -3,7 +3,6 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   Modal,
   View,
-  Text,
   StyleSheet,
   Animated,
   Dimensions,
@@ -11,6 +10,7 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import LinearGradient from "react-native-linear-gradient";
 import { BRAND } from "../theme/brandColors";

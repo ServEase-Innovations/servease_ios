@@ -2,14 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   View,
-  Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  TextInput,
   useWindowDimensions,
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';

@@ -2,10 +2,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
-  TextInput,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
@@ -15,6 +13,7 @@ import {
   Platform,
   StatusBar,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import PaymentInstance from "../services/paymentInstance";

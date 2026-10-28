@@ -2,12 +2,11 @@
 import React, { useRef, useState } from "react";
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Alert,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import {
   HelperText,
   ActivityIndicator,

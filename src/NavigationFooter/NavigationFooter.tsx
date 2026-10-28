@@ -2,7 +2,6 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
-  Text,
   Image,
   StyleSheet,
   TouchableOpacity,
@@ -10,6 +9,7 @@ import {
   Animated,
   Platform,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LinearGradient from "react-native-linear-gradient";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";

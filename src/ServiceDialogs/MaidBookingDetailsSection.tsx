@@ -8,7 +8,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import { useDispatch, useSelector } from "react-redux";
 import dayjs, { Dayjs } from "dayjs";
 import Icon from "react-native-vector-icons/MaterialIcons";

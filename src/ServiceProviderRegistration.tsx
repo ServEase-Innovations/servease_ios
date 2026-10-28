@@ -3,8 +3,6 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import moment from "moment";
 import {
   View,
-  Text,
-  TextInput,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
@@ -17,6 +15,7 @@ import {
   KeyboardAvoidingView,
   SafeAreaView,
 } from "react-native";
+import { Text, TextInput } from "./theme/BrandTypography";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import axios from "axios";
 import LinearGradient from 'react-native-linear-gradient';

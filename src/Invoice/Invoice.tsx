@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -13,6 +12,7 @@ import {
   Linking,
   InteractionManager,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Share from 'react-native-share';

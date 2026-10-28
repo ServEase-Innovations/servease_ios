@@ -8,12 +8,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { Text } from '../../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/Feather';
 import dayjs from 'dayjs';
 import axios from 'axios';

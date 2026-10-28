@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../Settings/ThemeContext';

@@ -2,7 +2,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
@@ -12,6 +11,7 @@ import {
   PermissionsAndroid,
   Alert,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import { useDispatch, useSelector } from "react-redux";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";

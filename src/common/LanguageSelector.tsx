@@ -2,15 +2,14 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
   FlatList,
-  TextInput,
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import { Chip, Button, IconButton } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';

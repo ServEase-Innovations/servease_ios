@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -10,6 +9,7 @@ import {
   Modal,
   Easing
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import { useTranslation } from 'react-i18next';
 

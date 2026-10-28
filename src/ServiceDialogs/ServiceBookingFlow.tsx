@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -10,8 +9,8 @@ import {
   Alert,
   Dimensions,
   Modal,
-  TextInput,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 import { useDispatch, useSelector } from "react-redux";

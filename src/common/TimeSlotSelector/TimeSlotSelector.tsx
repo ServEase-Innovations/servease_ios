@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Alert,
@@ -9,6 +8,7 @@ import {
   Platform,
   UIManager,
 } from "react-native";
+import { Text } from "../../theme/BrandTypography";
 import MultiSlider from "@ptomasroos/react-native-multi-slider";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 

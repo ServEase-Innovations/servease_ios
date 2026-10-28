@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   Animated,
   PanResponder,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppUser } from "../context/AppUserContext";

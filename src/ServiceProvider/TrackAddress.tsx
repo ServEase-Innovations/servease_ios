@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
@@ -12,6 +11,7 @@ import {
   Dimensions,
   StatusBar,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import Geolocation from '@react-native-community/geolocation';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';

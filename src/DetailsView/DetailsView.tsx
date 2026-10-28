@@ -4,7 +4,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Platform,
@@ -14,6 +13,7 @@ import {
   FlatList,
   Dimensions,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import providerInstance, { resolveProviderRequestUrl } from "../services/providerInstance";

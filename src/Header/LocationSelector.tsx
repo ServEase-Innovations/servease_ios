@@ -2,8 +2,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
-  Text,
-  TextInput,
   StyleSheet,
   TouchableOpacity,
   Modal,
@@ -20,6 +18,7 @@ import {
   Pressable,
   StatusBar,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import axios from "axios";
 import { keys } from "../env";
 import Icon from "react-native-vector-icons/FontAwesome";

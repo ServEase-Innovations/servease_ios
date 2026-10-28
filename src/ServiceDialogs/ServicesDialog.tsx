@@ -3,7 +3,6 @@ import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useR
 import {
   Modal,
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -16,6 +15,7 @@ import {
   TouchableWithoutFeedback,
   BackHandler,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';

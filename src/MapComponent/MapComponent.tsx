@@ -2,7 +2,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
@@ -10,6 +9,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import MapView, { Marker, type Region } from "react-native-maps";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import Geolocation from "@react-native-community/geolocation";

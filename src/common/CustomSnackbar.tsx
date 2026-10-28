@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 
 interface CustomSnackbarProps {
   visible: boolean;

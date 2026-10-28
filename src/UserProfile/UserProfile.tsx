@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   Button,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import { useSelector, useDispatch } from 'react-redux';
 import { add } from '../features/userSlice';
 import Icon from 'react-native-vector-icons/MaterialIcons';

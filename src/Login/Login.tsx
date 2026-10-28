@@ -3,8 +3,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +15,7 @@ import {
   StatusBar,
   SafeAreaView,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import LinearGradient from "react-native-linear-gradient";
 import { HOME_HERO_GRADIENT } from "../theme/brandColors";
 import { useDispatch } from "react-redux";

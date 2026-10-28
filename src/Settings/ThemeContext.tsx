@@ -1,11 +1,10 @@
 // src/Settings/ThemeContext.tsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { changeLanguage as changeI18nLanguage } from '../../i18n';
 import { BRAND, GRADIENTS } from '../theme/brandColors';
 
-type ThemeType = 'light' | 'dark' | 'system';
+type ThemeType = 'light' | 'dark';
 
 // Define all supported languages with their details
 export const SUPPORTED_LANGUAGES = [
@@ -289,9 +288,7 @@ const FONT_SIZE_CONFIG = {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const systemColorScheme = useColorScheme();
-  
-  // IMPORTANT: Default theme is now 'light' instead of 'system'
+  // Start in Light Mode until an in-app theme preference is loaded.
   const [theme, setThemeState] = useState<ThemeType>('light');
   const [fontSize, setFontSizeState] = useState<'small' | 'medium' | 'large'>('medium');
   const [language, setLanguageState] = useState<string>('en');
@@ -321,11 +318,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         AsyncStorage.getItem('compactMode'),
       ]);
 
-      // Only apply saved theme if it exists, otherwise keep default 'light'
-      if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system')) {
-        setThemeState(savedTheme as ThemeType);
+      if (savedTheme === 'light' || savedTheme === 'dark') {
+        setThemeState(savedTheme);
       } else {
-        // Ensure default is 'light' even if no saved preference
         setThemeState('light');
         await AsyncStorage.setItem('theme', 'light');
       }
@@ -399,9 +394,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Calculate isDarkMode based on theme preference
-  // Default is now light, so isDarkMode will be false by default
-  const isDarkMode = theme === 'system' ? systemColorScheme === 'dark' : theme === 'dark';
+  const isDarkMode = theme === 'dark';
   const colors = isDarkMode ? darkColors : lightColors;
   
   const currentLanguageDetails = SUPPORTED_LANGUAGES.find(l => l.code === language);

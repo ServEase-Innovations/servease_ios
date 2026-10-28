@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -14,6 +13,7 @@ import {
   PanResponder,
   StatusBar,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import dayjs, { Dayjs } from "dayjs";

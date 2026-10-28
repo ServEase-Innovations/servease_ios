@@ -3,8 +3,6 @@ import React, { useEffect, useState, useRef } from "react";
 import {
   Modal,
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
@@ -12,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAppUser } from "../context/AppUserContext";
 import providerInstance from "../services/providerInstance";

@@ -3,8 +3,6 @@ import React, { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import moment from "moment";
 import {
   View,
-  Text,
-  TextInput,
   ScrollView,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -19,6 +17,7 @@ import {
   Animated,
   AppState,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';

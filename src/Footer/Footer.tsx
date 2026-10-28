@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   Linking,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';

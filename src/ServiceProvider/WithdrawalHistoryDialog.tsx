@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
-  Text,
   Modal,
   ScrollView,
   TouchableOpacity,
@@ -12,6 +11,7 @@ import {
   SafeAreaView,
   StyleSheet,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import { BRAND } from "../theme/brandColors";
 import {

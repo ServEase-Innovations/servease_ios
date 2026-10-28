@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal,
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -11,6 +10,7 @@ import {
   Pressable,
   Platform,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../Settings/ThemeContext';

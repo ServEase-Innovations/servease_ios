@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
   Alert,
-  TextInput,
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';

@@ -16,7 +16,6 @@ import {
   AppState,
   TouchableOpacity,
   Alert,
-  Text,
   Modal,
   AppStateStatus,
   Platform,
@@ -24,6 +23,7 @@ import {
   Linking,
   ActivityIndicator,
 } from "react-native";
+
 import {
   SafeAreaProvider,
   SafeAreaView,
@@ -118,13 +118,19 @@ import { useDispatch } from "react-redux";
 import { add } from "./src/features/pricingSlice";
 import MobileNumberDialog from "./src/UserProfile/MobileNumberDialog";
 import NotificationsDialog from "./src/Notifications/NotificationsPage";
-import { PaperProvider, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
+import {
+  PaperProvider,
+  MD3LightTheme,
+  MD3DarkTheme,
+  configureFonts,
+} from "react-native-paper";
 import SignupDrawer from "./src/SignupDrawer/SignupDrawer";
 import ServiceProviderRegistration from "./src/Registration/ServiceProviderRegistration";
 import AgentRegistrationForm from "./src/Agent/AgentRegistrationForm";
 import Snackbar from "react-native-snackbar";
 import BrandLoadingScreen from "./src/common/BrandLoadingScreen";
 import { HOME_M3 } from "./src/theme/brandColors";
+import { FONT_FAMILY, Text } from "./src/theme/BrandTypography";
 
 interface DeepLinkData {
   openBookings: string;
@@ -144,6 +150,7 @@ const MainApp = () => {
       isDarkMode
         ? {
             ...MD3DarkTheme,
+            fonts: configureFonts({ config: { fontFamily: FONT_FAMILY } }),
             colors: {
               ...MD3DarkTheme.colors,
               primary: colors.primary,
@@ -155,6 +162,7 @@ const MainApp = () => {
           }
         : {
             ...MD3LightTheme,
+            fonts: configureFonts({ config: { fontFamily: FONT_FAMILY } }),
             colors: {
               ...MD3LightTheme.colors,
               primary: colors.primary,

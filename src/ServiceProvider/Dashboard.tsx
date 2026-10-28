@@ -1,12 +1,11 @@
 // Dashboard.tsx (Modern Redesign with Gradient Effects)
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  Alert, 
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
   RefreshControl,
   Modal,
   Linking,
@@ -15,6 +14,7 @@ import {
   Animated,
   StatusBar,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import LinearGradient from 'react-native-linear-gradient';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Snackbar from 'react-native-snackbar';

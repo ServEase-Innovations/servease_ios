@@ -2,7 +2,6 @@
 import React from 'react';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   ImageBackground,
@@ -10,6 +9,7 @@ import {
   SafeAreaView,
   StatusBar
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 
 interface AboutUsProps {
   onBack: () => void;

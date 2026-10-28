@@ -3,12 +3,12 @@ import React from "react";
 import {
   Modal,
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Pressable,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import Icon from "react-native-vector-icons/Feather";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import LinearGradient from "react-native-linear-gradient";

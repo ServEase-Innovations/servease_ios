@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
   ScrollView,
   Pressable,
 } from "react-native";
+import { Text } from "../../theme/BrandTypography";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useTheme } from "../../Settings/ThemeContext";
 import {

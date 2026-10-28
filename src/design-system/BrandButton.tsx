@@ -3,12 +3,12 @@ import {
   ActivityIndicator,
   Platform,
   StyleSheet,
-  Text,
   TextStyle,
   TouchableOpacity,
   View,
   ViewStyle,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import LinearGradient from "react-native-linear-gradient";
 import { BRAND } from "../theme/brandColors";
 import { useTheme } from "../Settings/ThemeContext";

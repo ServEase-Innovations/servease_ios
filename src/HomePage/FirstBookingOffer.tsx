@@ -1,11 +1,11 @@
 import React from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Platform,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import LinearGradient from "react-native-linear-gradient";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useTheme } from "../Settings/ThemeContext";

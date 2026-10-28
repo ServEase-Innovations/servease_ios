@@ -50,7 +50,7 @@ Sentry.init({
   ],
 });
 
-import { AppRegistry } from 'react-native';
+import { AppRegistry, Text, TextInput } from 'react-native';
 import React from 'react';
 import messaging from '@react-native-firebase/messaging';
 import App from './App';
@@ -58,6 +58,15 @@ import { name as appName } from './app.json';
 import { Provider } from 'react-redux';
 import store from './src/store/userStore';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+Text.defaultProps = {
+  ...Text.defaultProps,
+  allowFontScaling: false,
+};
+TextInput.defaultProps = {
+  ...TextInput.defaultProps,
+  allowFontScaling: false,
+};
 
 // Required for background FCM on Android; must run after @react-native-firebase/app.
 try {

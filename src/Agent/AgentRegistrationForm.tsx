@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -13,6 +11,7 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,

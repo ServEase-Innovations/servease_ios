@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   Modal,
   Pressable,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import {
   startJourney,

@@ -2,7 +2,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Alert,
@@ -11,6 +10,7 @@ import {
   Platform,
   Linking,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import { Calendar, DateData } from "react-native-calendars";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import moment from "moment";

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   Modal,
   TouchableOpacity,
@@ -10,6 +9,7 @@ import {
   PanResponder,
   TouchableWithoutFeedback,
 } from "react-native";
+import { Text } from "../theme/BrandTypography";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Feather";
 import LinearGradient from "react-native-linear-gradient";

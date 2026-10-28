@@ -2,13 +2,12 @@
 import React from "react";
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  TextInput,
   ActivityIndicator,
 } from "react-native";
+import { Text, TextInput } from "../theme/BrandTypography";
 import {
   HelperText,
   Divider,

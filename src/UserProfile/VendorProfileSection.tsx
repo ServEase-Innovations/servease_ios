@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -12,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text } from '../theme/BrandTypography';
 import { useAuth0 } from 'react-native-auth0';
 import { useAppUser } from '../context/AppUserContext';
 import { useTranslation } from 'react-i18next';

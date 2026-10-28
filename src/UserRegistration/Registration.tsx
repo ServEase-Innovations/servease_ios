@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -14,6 +12,7 @@ import {
   Button,
   Linking,
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import { CheckBox } from 'react-native-elements';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary } from 'react-native-image-picker';

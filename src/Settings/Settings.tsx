@@ -2,13 +2,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Modal,
   Alert,
-  TextInput,
   TouchableWithoutFeedback,
   Animated,
   Dimensions,
@@ -18,6 +16,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
 } from 'react-native';
+import { Text, TextInput } from '../theme/BrandTypography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -112,7 +111,6 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const themeOptions = [
     { value: 'light', label: 'Light Mode', icon: 'wb-sunny', description: 'Bright and clean interface' },
     { value: 'dark', label: 'Dark Mode', icon: 'nights-stay', description: 'Easy on the eyes at night' },
-    { value: 'system', label: 'System Default', icon: 'settings-overscan', description: 'Match your device' },
   ];
 
   useEffect(() => {
@@ -524,7 +522,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                 theme === option.value && { backgroundColor: isDarkMode ? 'rgba(8,145,178,0.18)' : 'rgba(0,191,255,0.12)' }
               ]}
               onPress={() => {
-                setTheme(option.value as 'light' | 'dark' | 'system');
+                setTheme(option.value as 'light' | 'dark');
                 setShowThemeModal(false);
               }}
             >
