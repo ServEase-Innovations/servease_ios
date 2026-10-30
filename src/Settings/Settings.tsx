@@ -245,25 +245,27 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           </View>
           <View style={styles.settingItemRight}>
             {value && !showSwitch ? (
-              <LinearGradient
-                colors={
-                  valueDanger
-                    ? isDarkMode
-                      ? ['#7F1D1D', '#B91C1C']
-                      : ['#EF4444', '#B91C1C']
-                    : iconGradient
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.valuePill}
-              >
+              <View style={styles.valuePill}>
+                <LinearGradient
+                  colors={
+                    valueDanger
+                      ? isDarkMode
+                        ? ['#7F1D1D', '#B91C1C']
+                        : ['#EF4444', '#B91C1C']
+                      : iconGradient
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFillObject}
+                  pointerEvents="none"
+                />
                 <Text
                   style={[styles.settingValue, { fontSize: fontStyles.smallText }]}
                   numberOfLines={1}
                 >
                   {value}
                 </Text>
-              </LinearGradient>
+              </View>
             ) : null}
             {showSwitch ? (
               <TouchableOpacity
@@ -304,20 +306,24 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   };
 
   const SectionHeader = ({ title }: { title: string; icon?: string }) => (
-    <LinearGradient
-      colors={iconGradient}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.sectionHeaderContainer}
-    >
+    <View style={styles.sectionHeaderContainer}>
       <LinearGradient
-        colors={isDarkMode ? ['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.08)'] : ['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.12)']}
-        style={styles.sectionHeaderMark}
+        colors={iconGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
+      <View
+        style={[
+          styles.sectionHeaderMark,
+          { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.65)' },
+        ]}
       />
       <Text style={[styles.sectionHeader, { fontSize: fontStyles.smallText }]}>
         {title.toUpperCase()}
       </Text>
-    </LinearGradient>
+    </View>
   );
 
   const CustomModal = ({ visible, onClose, title, icon = "settings", children }: any) => (
@@ -498,15 +504,17 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
               onPress={() => setShowTnCModal(true)}
               activeOpacity={0.7}
             >
-              <LinearGradient
-                colors={iconGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.termsLinkGradient}
-              >
+              <View style={styles.termsLinkGradient}>
+                <LinearGradient
+                  colors={iconGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFillObject}
+                  pointerEvents="none"
+                />
                 <Text style={[styles.termsLink, { fontSize: fontStyles.textSize }]}>Terms of Service</Text>
                 <MaterialIcon name="arrow-forward" size={18} color="#ffffff" />
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -907,10 +915,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   valuePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 20,
-    maxWidth: 140,
+    maxWidth: 160,
+    overflow: 'hidden',
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   settingValue: {
     color: '#ffffff',
@@ -945,6 +957,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
   },
   termsLink: {
     color: '#ffffff',
@@ -1206,10 +1220,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 10,
     maxWidth: '100%',
+    overflow: 'hidden',
+    position: 'relative',
   },
   sectionHeaderMark: {
     width: 7,
