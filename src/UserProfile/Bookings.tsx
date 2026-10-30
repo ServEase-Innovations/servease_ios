@@ -101,9 +101,14 @@ const GradientButton: React.FC<{
   if (disabled) {
     return (
       <View style={[styles.gradientButton, { opacity: 0.5 }, style]}>
-        <LinearGradient colors={['#9CA3AF', '#6B7280']} style={[styles.gradientInner, innerStyle]}>
+        <View style={[styles.gradientInner, styles.gradientInnerFill, innerStyle]}>
+          <LinearGradient
+            colors={['#9CA3AF', '#6B7280']}
+            style={StyleSheet.absoluteFillObject}
+            pointerEvents="none"
+          />
           {children}
-        </LinearGradient>
+        </View>
       </View>
     );
   }
@@ -114,14 +119,16 @@ const GradientButton: React.FC<{
       style={[styles.gradientButton, style]}
       activeOpacity={0.85}
     >
-      <LinearGradient
-        colors={gradientColors || defaultGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.gradientInner, styles.gradientInnerFill, innerStyle]}
-      >
+      <View style={[styles.gradientInner, styles.gradientInnerFill, innerStyle]}>
+        <LinearGradient
+          colors={gradientColors || defaultGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFillObject}
+          pointerEvents="none"
+        />
         {children}
-      </LinearGradient>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -2172,10 +2179,22 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
             <SkeletonLoader width="100%" height={44} variant="rectangular" style={{ borderRadius: 22 }} />
           ) : (
             <View style={styles.headerSearchRow}>
-              <View style={styles.headerSearchPill}>
+              <View
+                style={[
+                  styles.headerSearchPill,
+                  isDarkMode && {
+                    backgroundColor: colors.surface2,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
                 <Icon name="magnify" size={20} color="#94a3b8" />
                 <TextInput
-                  style={[styles.headerSearchInput, { fontSize: fontSizes.searchInput }]}
+                  style={[
+                    styles.headerSearchInput,
+                    { fontSize: fontSizes.searchInput, color: isDarkMode ? colors.text : HOME_M3.onSurface },
+                  ]}
                   placeholder="Search booking #, provider, service..."
                   placeholderTextColor="#94a3b8"
                   value={searchTerm}
@@ -4443,6 +4462,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     gap: 8,
     minHeight: 52,
+    overflow: 'hidden',
+    position: 'relative',
   },
   gradientInnerFill: {
     width: '100%',

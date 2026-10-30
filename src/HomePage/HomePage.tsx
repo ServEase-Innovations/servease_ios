@@ -454,8 +454,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     <Icon name="close" size={20} color={HOME_M3.outline} />
                   </TouchableOpacity>
                 ) : (
-                  <View style={styles.searchTuneWrap}>
-                    <Icon name="tune" size={24} color={HOME_M3.outline} />
+                  <View
+                    style={[
+                      styles.searchTuneWrap,
+                      { borderLeftColor: isDarkMode ? colors.border : "#E2E8F0" },
+                    ]}
+                  >
+                    <Icon name="tune" size={24} color={colors.textSecondary} />
                   </View>
                 )}
               </View>
@@ -516,7 +521,15 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
           {/* Selected Service Details */}
           {selectedServiceForDetails && (
-            <View style={[styles.serviceDetailCard, { backgroundColor: colors.surface }]}>
+            <View
+              style={[
+                styles.serviceDetailCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
               <View style={styles.serviceDetailHeader}>
                 <Text style={[styles.serviceDetailTitle, { color: colors.text }]}>
                   {services.find((s) => s.key === selectedServiceForDetails)?.title}
@@ -531,17 +544,53 @@ const HomePage: React.FC<ChildComponentProps> = ({
               </Text>
 
               <View style={styles.serviceDetailBadges}>
-                <View style={styles.detailBadge}>
+                <View
+                  style={[
+                    styles.detailBadge,
+                    { backgroundColor: isDarkMode ? colors.surface2 : "#F1F5F9" },
+                  ]}
+                >
                   <Icon name="star" size={16} color="#FF9500" />
-                  <Text style={styles.detailBadgeText}>4.8 Rating</Text>
+                  <Text
+                    style={[
+                      styles.detailBadgeText,
+                      { color: isDarkMode ? colors.textSecondary : "#475569" },
+                    ]}
+                  >
+                    4.8 Rating
+                  </Text>
                 </View>
-                <View style={styles.detailBadge}>
+                <View
+                  style={[
+                    styles.detailBadge,
+                    { backgroundColor: isDarkMode ? colors.surface2 : "#F1F5F9" },
+                  ]}
+                >
                   <Icon name="verified" size={16} color="#00BFFF" />
-                  <Text style={styles.detailBadgeText}>Verified Pros</Text>
+                  <Text
+                    style={[
+                      styles.detailBadgeText,
+                      { color: isDarkMode ? colors.textSecondary : "#475569" },
+                    ]}
+                  >
+                    Verified Pros
+                  </Text>
                 </View>
-                <View style={styles.detailBadge}>
+                <View
+                  style={[
+                    styles.detailBadge,
+                    { backgroundColor: isDarkMode ? colors.surface2 : "#F1F5F9" },
+                  ]}
+                >
                   <Icon name="schedule" size={16} color="#10B981" />
-                  <Text style={styles.detailBadgeText}>Flexible Hours</Text>
+                  <Text
+                    style={[
+                      styles.detailBadgeText,
+                      { color: isDarkMode ? colors.textSecondary : "#475569" },
+                    ]}
+                  >
+                    Flexible Hours
+                  </Text>
                 </View>
               </View>
 
@@ -596,14 +645,30 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
           {/* Stats: single row on iOS and Android (stacked only on very small screens) */}
           <View style={[styles.statsRow, isNarrowLayout && styles.statsRowNarrow]}>
-            <View style={[styles.statCell, styles.statCellStart, isNarrowLayout && styles.statCellNarrow]}>
+            <View
+              style={[
+                styles.statCell,
+                isNarrowLayout && styles.statCellNarrow,
+                isNarrowLayout && { borderColor: colors.border },
+              ]}
+            >
               <View style={styles.statValueRow}>
                 <Text style={[styles.statValue, isCompactStats && styles.statValueCompact, { color: colors.text }]}>
                   50k+
                 </Text>
                 <View style={styles.avatarStack}>
                   {HAPPY_HOME_AVATARS.map((bg, i) => (
-                    <View key={bg} style={[styles.stackAvatar, { backgroundColor: bg, marginLeft: i === 0 ? 0 : -8 }]}>
+                    <View
+                      key={bg}
+                      style={[
+                        styles.stackAvatar,
+                        {
+                          backgroundColor: bg,
+                          borderColor: isDarkMode ? colors.surface : "#FFFFFF",
+                          marginLeft: i === 0 ? 0 : -8,
+                        },
+                      ]}
+                    >
                       <Icon name="person" size={14} color="#64748B" />
                     </View>
                   ))}
@@ -613,27 +678,38 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 Happy Homes
               </Text>
             </View>
-            <View style={[styles.statCell, !isNarrowLayout && styles.statDivider, isNarrowLayout && styles.statCellNarrow]}>
-              <Icon name="verified" size={isCompactStats ? 28 : 34} color="#1D8CF0" style={styles.statIcon} />
-              <View>
+            <View
+              style={[
+                styles.statCell,
+                !isNarrowLayout && [styles.statDivider, { borderColor: colors.border }],
+                isNarrowLayout && [styles.statCellNarrow, { borderColor: colors.border }],
+              ]}
+            >
+              <View style={styles.statValueRow}>
+                <Icon name="verified" size={isCompactStats ? 22 : 26} color="#1D8CF0" style={styles.statIcon} />
                 <Text style={[styles.statValue, isCompactStats && styles.statValueCompact, { color: colors.text }]}>
                   2000+
                 </Text>
-                <Text style={[styles.statLabel, isCompactStats && styles.statLabelCompact, { color: colors.textSecondary }]}>
-                  Verified Pros
-                </Text>
               </View>
+              <Text style={[styles.statLabel, isCompactStats && styles.statLabelCompact, { color: colors.textSecondary }]}>
+                Verified Pros
+              </Text>
             </View>
-            <View style={[styles.statCell, isNarrowLayout && styles.statCellNarrow]}>
-              <Icon name="star" size={isCompactStats ? 28 : 34} color="#F5A623" style={styles.statIcon} />
-              <View>
+            <View
+              style={[
+                styles.statCell,
+                isNarrowLayout && [styles.statCellNarrow, { borderColor: colors.border }],
+              ]}
+            >
+              <View style={styles.statValueRow}>
+                <Icon name="star" size={isCompactStats ? 22 : 26} color="#F5A623" style={styles.statIcon} />
                 <Text style={[styles.statValue, isCompactStats && styles.statValueCompact, { color: colors.text }]}>
                   4.8/5
                 </Text>
-                <Text style={[styles.statLabel, isCompactStats && styles.statLabelCompact, { color: colors.textSecondary }]}>
-                  Avg Rating
-                </Text>
               </View>
+              <Text style={[styles.statLabel, isCompactStats && styles.statLabelCompact, { color: colors.textSecondary }]}>
+                Avg Rating
+              </Text>
             </View>
           </View>
 
@@ -1030,18 +1106,17 @@ const styles = StyleSheet.create({
   // Stats
   statsRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, marginVertical: 8 },
   statsRowNarrow: { flexDirection: "column", alignItems: "stretch" },
-  statCell: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
-  statCellNarrow: { flex: 0, justifyContent: "flex-start", paddingVertical: 10, borderTopWidth: 1, borderColor: HOME_M3.outlineVariant },
-  statCellStart: { flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: 0 },
-  statValueRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  statCell: { flex: 1, flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 },
+  statCellNarrow: { flex: 0, alignItems: "center", paddingVertical: 10, borderTopWidth: 1, borderColor: HOME_M3.outlineVariant },
+  statValueRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 28 },
   avatarStack: { flexDirection: "row", alignItems: "center" },
   stackAvatar: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
-  statIcon: { marginRight: 2 },
+  statIcon: { marginRight: 0 },
   statDivider: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: HOME_M3.outlineVariant },
-  statValue: { fontSize: 22, fontWeight: "800" },
-  statValueCompact: { fontSize: 18 },
-  statLabel: { fontSize: 14, fontWeight: "500" },
-  statLabelCompact: { fontSize: 12 },
+  statValue: { fontSize: 20, fontWeight: "800", lineHeight: 24, includeFontPadding: false },
+  statValueCompact: { fontSize: 17, lineHeight: 21 },
+  statLabel: { fontSize: 13, fontWeight: "500", textAlign: "center", lineHeight: 18 },
+  statLabelCompact: { fontSize: 11, lineHeight: 15 },
 
   helpSection: { alignItems: "center", marginBottom: 12, paddingBottom: 8 },
   helpTitle: { fontSize: 15, fontWeight: "700" },

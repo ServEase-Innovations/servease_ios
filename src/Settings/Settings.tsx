@@ -231,15 +231,17 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           activeOpacity={0.65}
         >
           <View style={styles.settingItemLeft}>
-            <LinearGradient
-              colors={iconGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.settingIconBg}
-            >
+            <View style={styles.settingIconBg}>
+              <LinearGradient
+                colors={iconGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+                pointerEvents="none"
+              />
               <MaterialIcon name={icon} size={20} color="#ffffff" />
-            </LinearGradient>
-            <Text style={[styles.settingLabel, { color: isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer, fontSize: fontStyles.textSize }]}>
+            </View>
+            <Text style={[styles.settingLabel, { color: isDarkMode ? '#f8fafc' : '#0f172a', fontSize: fontStyles.textSize }]}>
               {label}
             </Text>
           </View>
@@ -297,7 +299,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                 <View style={styles.gradientSwitchThumb} />
               </TouchableOpacity>
             ) : (
-              <MaterialIcon name={rightIcon} size={20} color={isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer} />
+              <MaterialIcon name={rightIcon} size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
             )}
           </View>
         </TouchableOpacity>
@@ -317,10 +319,10 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       <View
         style={[
           styles.sectionHeaderMark,
-          { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.65)' },
+          { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.75)' },
         ]}
       />
-      <Text style={[styles.sectionHeader, { fontSize: fontStyles.smallText }]}>
+      <Text style={[styles.sectionHeader, { fontSize: fontStyles.smallText - 1 }]}>
         {title.toUpperCase()}
       </Text>
     </View>
@@ -341,15 +343,19 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
               ]}
             >
               <View style={styles.bottomSheetHeader}>
-                <View style={styles.bottomSheetHandle} />
+                <View style={[styles.bottomSheetHandle, { backgroundColor: isDarkMode ? '#475569' : '#cbd5e1' }]} />
                 <View style={styles.bottomSheetTitleRow}>
-                  <LinearGradient
-                    colors={iconGradient}
-                    style={styles.bottomSheetIconBg}
-                  >
+                  <View style={styles.bottomSheetIconBg}>
+                    <LinearGradient
+                      colors={iconGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={StyleSheet.absoluteFillObject}
+                      pointerEvents="none"
+                    />
                     <MaterialIcon name={icon} size={24} color="#ffffff" />
-                  </LinearGradient>
-                  <Text style={[styles.bottomSheetTitle, { color: isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer, fontSize: fontStyles.headingSize }]}>
+                  </View>
+                  <Text style={[styles.bottomSheetTitle, { color: isDarkMode ? '#f8fafc' : '#0f172a', fontSize: fontStyles.headingSize }]}>
                     {title}
                   </Text>
                   <TouchableOpacity 
@@ -401,6 +407,15 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
     </View>
   );
 
+  const cardStyle = [
+    styles.card,
+    {
+      backgroundColor: isDarkMode ? colors.card : '#ffffff',
+      borderWidth: isDarkMode ? 1 : 0,
+      borderColor: isDarkMode ? colors.border : 'transparent',
+    },
+  ];
+
   return (
     <View style={[styles.container, { backgroundColor: HOME_M3.primary }]}>
       {renderSettingsHeader()}
@@ -412,7 +427,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       >
         <View style={styles.section}>
           <SectionHeader title="Appearance" />
-          <View style={[styles.card, { backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
+          <View style={cardStyle}>
             <SettingItem
               icon="palette"
               label="Theme"
@@ -440,7 +455,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
 
         <View style={styles.section}>
           <SectionHeader title="Preferences" />
-          <View style={[styles.card, { backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
+          <View style={cardStyle}>
             <SettingItem
               icon="notifications-active"
               label="Push Notifications"
@@ -463,7 +478,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
 
         <View style={styles.section}>
           <SectionHeader title="Privacy & Security" />
-          <View style={[styles.card, { backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
+          <View style={cardStyle}>
             <SettingItem
               icon="lock"
               label="Privacy Policy"
@@ -490,14 +505,14 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
 
         <View style={styles.section}>
           <SectionHeader title="About" />
-          <View style={[styles.card, { backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
+          <View style={cardStyle}>
             <View style={[styles.aboutRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#e2e8f0' }]}>
-              <Text style={[styles.aboutLabel, { color: isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer, fontSize: fontStyles.textSize }]}>Version</Text>
-              <Text style={[styles.aboutValue, { color: isDarkMode ? '#E0F2FE' : HOME_M3.onSurface, fontSize: fontStyles.textSize }]}>{appVersionLabel || '2.4.0 (Enterprise)'}</Text>
+              <Text style={[styles.aboutLabel, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.textSize }]}>Version</Text>
+              <Text style={[styles.aboutValue, { color: isDarkMode ? '#f8fafc' : '#0f172a', fontSize: fontStyles.textSize }]}>{appVersionLabel || '2.4.0 (Enterprise)'}</Text>
             </View>
             <View style={[styles.aboutRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#e2e8f0' }]}>
-              <Text style={[styles.aboutLabel, { color: isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer, fontSize: fontStyles.textSize }]}>Last Updated</Text>
-              <Text style={[styles.aboutValue, { color: isDarkMode ? '#E0F2FE' : HOME_M3.onSurface, fontSize: fontStyles.textSize }]}>Oct 12, 2023</Text>
+              <Text style={[styles.aboutLabel, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.textSize }]}>Last Updated</Text>
+              <Text style={[styles.aboutValue, { color: isDarkMode ? '#f8fafc' : '#0f172a', fontSize: fontStyles.textSize }]}>Oct 12, 2023</Text>
             </View>
             <TouchableOpacity
               style={styles.termsLinkRow}
@@ -526,8 +541,8 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
               key={option.value}
               style={[
                 styles.modalItem,
-                { borderBottomWidth: idx === themeOptions.length - 1 ? 0 : 1, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' },
-                theme === option.value && { backgroundColor: isDarkMode ? 'rgba(8,145,178,0.18)' : 'rgba(0,191,255,0.12)' }
+                { borderBottomWidth: idx === themeOptions.length - 1 ? 0 : StyleSheet.hairlineWidth, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+                theme === option.value && { backgroundColor: isDarkMode ? 'rgba(56,189,248,0.14)' : 'rgba(0,191,255,0.1)' }
               ]}
               onPress={() => {
                 setTheme(option.value as 'light' | 'dark');
@@ -535,11 +550,18 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
               }}
             >
               <View style={styles.modalItemLeft}>
-                <LinearGradient colors={iconGradient} style={styles.modalIconBg}>
+                <View style={styles.modalIconBg}>
+                  <LinearGradient
+                    colors={iconGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                    pointerEvents="none"
+                  />
                   <MaterialIcon name={option.icon} size={20} color="#ffffff" />
-                </LinearGradient>
-                <View>
-                  <Text style={[styles.modalItemText, { color: theme === option.value ? (isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer) : (isDarkMode ? '#f8fafc' : '#1e293b'), fontSize: fontStyles.textSize }]}>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.modalItemText, { color: theme === option.value ? (isDarkMode ? '#38bdf8' : HOME_M3.primaryContainer) : (isDarkMode ? '#f8fafc' : '#0f172a'), fontSize: fontStyles.textSize }]}>
                     {option.label}
                   </Text>
                   <Text style={[styles.modalItemSubText, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.smallText }]}>
@@ -548,12 +570,16 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                 </View>
               </View>
               {theme === option.value && (
-                <LinearGradient
-                  colors={iconGradient}
-                  style={styles.selectionCheck}
-                >
+                <View style={styles.selectionCheck}>
+                  <LinearGradient
+                    colors={iconGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                    pointerEvents="none"
+                  />
                   <MaterialIcon name="check" size={16} color="#ffffff" />
-                </LinearGradient>
+                </View>
               )}
             </TouchableOpacity>
           ))}
@@ -566,8 +592,8 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
               key={option.value}
               style={[
                 styles.modalItem,
-                { borderBottomWidth: idx === fontSizes.length - 1 ? 0 : 1, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' },
-                fontSize === option.value && { backgroundColor: isDarkMode ? 'rgba(8,145,178,0.18)' : 'rgba(0,191,255,0.12)' }
+                { borderBottomWidth: idx === fontSizes.length - 1 ? 0 : StyleSheet.hairlineWidth, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+                fontSize === option.value && { backgroundColor: isDarkMode ? 'rgba(56,189,248,0.14)' : 'rgba(0,191,255,0.1)' }
               ]}
               onPress={() => {
                 setFontSize(option.value as 'small' | 'medium' | 'large');
@@ -575,20 +601,31 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
               }}
             >
               <View style={styles.modalItemLeft}>
-                <LinearGradient colors={iconGradient} style={styles.modalIconBg}>
+                <View style={styles.modalIconBg}>
+                  <LinearGradient
+                    colors={iconGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                    pointerEvents="none"
+                  />
                   <Text style={[styles.previewText, { fontSize: option.size }]}>{option.preview}</Text>
-                </LinearGradient>
-                <Text style={[styles.modalItemText, { color: fontSize === option.value ? (isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer) : (isDarkMode ? '#f8fafc' : '#1e293b'), fontSize: option.size }]}>
+                </View>
+                <Text style={[styles.modalItemText, { color: fontSize === option.value ? (isDarkMode ? '#38bdf8' : HOME_M3.primaryContainer) : (isDarkMode ? '#f8fafc' : '#0f172a'), fontSize: option.size }]}>
                   {option.label}
                 </Text>
               </View>
               {fontSize === option.value && (
-                <LinearGradient
-                  colors={iconGradient}
-                  style={styles.selectionCheck}
-                >
+                <View style={styles.selectionCheck}>
+                  <LinearGradient
+                    colors={iconGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                    pointerEvents="none"
+                  />
                   <MaterialIcon name="check" size={16} color="#ffffff" />
-                </LinearGradient>
+                </View>
               )}
             </TouchableOpacity>
           ))}
@@ -618,15 +655,19 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                 >
                   {/* Bottom Sheet Header */}
                   <View style={styles.bottomSheetHeader}>
-                    <View style={styles.bottomSheetHandle} />
+                    <View style={[styles.bottomSheetHandle, { backgroundColor: isDarkMode ? '#475569' : '#cbd5e1' }]} />
                     <View style={styles.bottomSheetTitleRow}>
-                      <LinearGradient
-                        colors={iconGradient}
-                        style={styles.bottomSheetIconBg}
-                      >
+                      <View style={styles.bottomSheetIconBg}>
+                        <LinearGradient
+                          colors={iconGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={StyleSheet.absoluteFillObject}
+                          pointerEvents="none"
+                        />
                         <MaterialIcon name="language" size={24} color="#ffffff" />
-                      </LinearGradient>
-                      <Text style={[styles.bottomSheetTitle, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.headingSize }]}>
+                      </View>
+                      <Text style={[styles.bottomSheetTitle, { color: isDarkMode ? '#f8fafc' : '#0f172a', fontSize: fontStyles.headingSize }]}>
                         Select Language
                       </Text>
                       <TouchableOpacity 
@@ -715,18 +756,22 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                             </View>
                           </View>
                           {language === lang.code && (
-                            <LinearGradient
-                              colors={iconGradient}
-                              style={styles.bottomSheetCheckBg}
-                            >
+                            <View style={styles.bottomSheetCheckBg}>
+                              <LinearGradient
+                                colors={iconGradient}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={StyleSheet.absoluteFillObject}
+                                pointerEvents="none"
+                              />
                               <MaterialIcon name="check" size={18} color="#ffffff" />
-                            </LinearGradient>
+                            </View>
                           )}
                         </TouchableOpacity>
                       ))
                     ) : (
                       <View style={styles.bottomSheetNoResults}>
-                        <MaterialIcon name="search-off" size={48} color={isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer} />
+                        <MaterialIcon name="search-off" size={48} color={isDarkMode ? '#38bdf8' : HOME_M3.primaryContainer} />
                         <Text style={[styles.bottomSheetNoResultsText, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.textSize }]}>
                           No languages found
                         </Text>
@@ -781,7 +826,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           <View style={styles.loadingOverlay}>
             <View style={[styles.loadingCard, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff' }]}>
               <ActivityIndicator size="large" color={HOME_M3.primaryContainer} />
-              <Text style={[styles.loadingText, { color: isDarkMode ? '#67E8F9' : HOME_M3.primaryContainer, fontSize: fontStyles.textSize }]}>
+              <Text style={[styles.loadingText, { color: isDarkMode ? '#f8fafc' : '#0f172a', fontSize: fontStyles.textSize }]}>
                 {t('common.changingLanguage') || 'Changing language...'}
               </Text>
             </View>
@@ -805,7 +850,7 @@ const styles = StyleSheet.create({
   headerShell: {
     width: '100%',
     backgroundColor: HOME_M3.primary,
-    paddingBottom: 4,
+    paddingBottom: 6,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -830,7 +875,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     textAlign: 'left',
     lineHeight: 24,
-    marginLeft: 2,
+    marginLeft: 4,
+    includeFontPadding: false,
   },
   headerSideSlot: {
     width: 40,
@@ -843,7 +889,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingTop: 18,
     paddingBottom: 2,
   },
   sectionHeader: {
@@ -851,6 +897,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.7,
     flexShrink: 1,
+    lineHeight: 16,
+    includeFontPadding: false,
   },
   // ── Card ────────────────────────────────────────────────────────
   card: {
@@ -868,14 +916,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 13,
-    paddingHorizontal: 14,
-    minHeight: 56,
+    paddingHorizontal: 16,
+    minHeight: 58,
   },
   settingItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginRight: 8,
+    marginRight: 10,
   },
   settingIconBg: {
     width: 36,
@@ -884,15 +932,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+    position: 'relative',
   },
   settingLabel: {
-    fontWeight: '500',
+    fontWeight: '600',
     flexShrink: 1,
+    lineHeight: 22,
+    includeFontPadding: false,
   },
   settingItemRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     flexShrink: 0,
   },
   gradientSwitch: {
@@ -917,6 +969,7 @@ const styles = StyleSheet.create({
   valuePill: {
     paddingHorizontal: 12,
     paddingVertical: 5,
+    minHeight: 26,
     borderRadius: 20,
     maxWidth: 160,
     overflow: 'hidden',
@@ -927,6 +980,9 @@ const styles = StyleSheet.create({
   settingValue: {
     color: '#ffffff',
     fontWeight: '600',
+    lineHeight: 16,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   // ── About section rows ──────────────────────────────────────────
   aboutRow: {
@@ -935,28 +991,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    minHeight: 48,
+    minHeight: 50,
   },
   aboutLabel: {
-    fontWeight: '400',
+    fontWeight: '500',
+    lineHeight: 20,
+    includeFontPadding: false,
   },
   aboutValue: {
     fontWeight: '700',
+    lineHeight: 20,
+    includeFontPadding: false,
   },
   termsLinkRow: {
-    alignSelf: 'center',
-    marginVertical: 12,
+    alignSelf: 'stretch',
+    marginHorizontal: 16,
+    marginVertical: 14,
   },
   termsLinkGradient: {
-    minHeight: 42,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    maxWidth: '100%',
+    width: '100%',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -965,6 +1026,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flexShrink: 1,
     textAlign: 'center',
+    lineHeight: 20,
+    includeFontPadding: false,
   },
   // ── Modals ──────────────────────────────────────────────────────
   modalOverlay: {
@@ -1002,29 +1065,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 4,
   },
   modalItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
     gap: 14,
   },
   modalIconBg: {
     width: 40,
     height: 40,
-    borderRadius: 9,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
   },
   modalItemText: {
     fontWeight: '600',
+    lineHeight: 22,
+    includeFontPadding: false,
   },
   modalItemSubText: {
     marginTop: 2,
+    lineHeight: 18,
+    includeFontPadding: false,
   },
   previewText: {
     color: '#ffffff',
     fontWeight: '700',
+    includeFontPadding: false,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -1087,11 +1161,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
   },
   bottomSheetTitle: {
     flex: 1,
     fontWeight: '700',
     letterSpacing: -0.3,
+    lineHeight: 26,
+    includeFontPadding: false,
   },
   bottomSheetCloseBtn: {
     width: 36,
@@ -1151,9 +1229,13 @@ const styles = StyleSheet.create({
   bottomSheetLanguageName: {
     fontWeight: '600',
     marginBottom: 2,
+    lineHeight: 20,
+    includeFontPadding: false,
   },
   bottomSheetLanguageNative: {
     fontWeight: '400',
+    lineHeight: 18,
+    includeFontPadding: false,
   },
   bottomSheetCheckBg: {
     width: 28,
@@ -1161,6 +1243,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
   },
   bottomSheetNoResults: {
     alignItems: 'center',
@@ -1218,19 +1302,20 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    gap: 7,
+    marginBottom: 10,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    minHeight: 28,
     borderRadius: 10,
     maxWidth: '100%',
     overflow: 'hidden',
     position: 'relative',
   },
   sectionHeaderMark: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   selectionCheck: {
     width: 26,
@@ -1238,6 +1323,8 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
   },
 });
 

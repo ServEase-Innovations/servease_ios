@@ -541,12 +541,14 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
 
   const renderRewards = () => (
     <View style={styles.section}>
-      <LinearGradient
-        colors={isDarkMode ? ['#312e81', '#4338ca'] : ['#4f46e5', '#6366f1']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.rewardsCard}
-      >
+      <View style={[styles.rewardsCard, { overflow: 'hidden', position: 'relative' }]}>
+        <LinearGradient
+          colors={isDarkMode ? ['#312e81', '#4338ca'] : ['#4f46e5', '#6366f1']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+          pointerEvents="none"
+        />
         <View style={styles.rewardsHeader}>
           <Icon name="star-four-points" size={32} color="#fde68a" />
           <View>
@@ -563,7 +565,7 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
         >
           <Text style={[styles.rewardsCtaText, { color: '#4338ca', fontSize: fontSizes.button }]}>View rewards catalog</Text>
         </TouchableOpacity>
-      </LinearGradient>
+      </View>
     </View>
   );
 

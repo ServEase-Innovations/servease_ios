@@ -330,12 +330,14 @@ const ProfileMenuSheet: React.FC<Props> = ({
           {...panResponder.panHandlers}
         >
           <View style={styles.headerShell}>
-            <LinearGradient
-              colors={[...HOME_HERO_GRADIENT]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.headerGradient}
-            >
+            <View style={[styles.headerGradient, { overflow: 'hidden', position: 'relative' }]}>
+              <LinearGradient
+                colors={[...HOME_HERO_GRADIENT]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+                pointerEvents="none"
+              />
               <View style={styles.headerToolbar}>
                 <View style={styles.handle} />
                 {/* <TouchableOpacity
@@ -374,7 +376,7 @@ const ProfileMenuSheet: React.FC<Props> = ({
                   ) : null}
                 </View>
               </View>
-            </LinearGradient>
+            </View>
           </View>
 
           <View style={[styles.bodySection, { backgroundColor: sheetSurface }]}>

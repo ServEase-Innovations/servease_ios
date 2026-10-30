@@ -59,15 +59,31 @@ const formatJoinedLabel = (raw: string | null | undefined): string => {
   return d.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
 };
 
-const SectionTitle = ({ children }: { children: string }) => (
-  <Text style={hubStyles.sectionTitle}>{children}</Text>
+const SectionTitle = ({ children, isDarkMode }: { children: string; isDarkMode?: boolean }) => (
+  <Text style={[hubStyles.sectionTitle, isDarkMode && { color: "#94a3b8" }]}>{children}</Text>
 );
 
-const ReadOnlyField = ({ label, value }: { label: string; value: string }) => (
+const ReadOnlyField = ({
+  label,
+  value,
+  isDarkMode,
+}: {
+  label: string;
+  value: string;
+  isDarkMode?: boolean;
+}) => (
   <View style={hubStyles.fieldWrap}>
-    <Text style={hubStyles.fieldLabel}>{label}</Text>
-    <View style={hubStyles.fieldBox}>
-      <Text style={hubStyles.fieldValue} numberOfLines={3}>
+    <Text style={[hubStyles.fieldLabel, isDarkMode && { color: "#cbd5e1" }]}>{label}</Text>
+    <View
+      style={[
+        hubStyles.fieldBox,
+        isDarkMode && {
+          backgroundColor: "#1e293b",
+          borderColor: "#334155",
+        },
+      ]}
+    >
+      <Text style={[hubStyles.fieldValue, isDarkMode && { color: "#f8fafc" }]} numberOfLines={3}>
         {value || "—"}
       </Text>
     </View>
@@ -438,9 +454,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     : null;
   const joinedLabel = formatJoinedLabel(profileDetails.joinedAt);
   const ordersLabel = orderCount != null ? String(orderCount) : "—";
+  const sheetBg = isDarkMode ? "#0f172a" : HOME_M3.surfaceContainerLowest;
+  const cardBg = isDarkMode ? "#1e293b" : HOME_M3.surfaceContainerLow;
+  const cardBorder = isDarkMode ? "#334155" : "rgba(196, 198, 207, 0.3)";
+  const primaryText = isDarkMode ? "#f8fafc" : HOME_M3.onSurface;
+  const secondaryText = isDarkMode ? "#cbd5e1" : HOME_M3.onSurfaceVariant;
 
   return (
-    <View style={[styles.container, { backgroundColor: HOME_M3.surfaceContainerLowest }]}>
+    <View style={[styles.container, { backgroundColor: sheetBg }]}>
       <StatusBar barStyle="light-content" backgroundColor={HOME_M3.primary} />
 
       <ProfileNavBar onBack={onBack} topInset={navTop} />
@@ -454,12 +475,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           { paddingTop: navHeight, paddingBottom: footerClearance + 16 },
         ]}
       >
-        <LinearGradient
-          colors={[HOME_M3.primaryContainer, HOME_M3.primary]}
-          style={hubStyles.hero}
-          start={{ x: 0.2, y: 0 }}
-          end={{ x: 0.8, y: 1 }}
-        >
+        <View style={hubStyles.hero}>
+          <LinearGradient
+            colors={[HOME_M3.primaryContainer, HOME_M3.primary]}
+            style={StyleSheet.absoluteFillObject}
+            start={{ x: 0.2, y: 0 }}
+            end={{ x: 0.8, y: 1 }}
+            pointerEvents="none"
+          />
           <View style={hubStyles.heroDecorA} />
           <View style={hubStyles.heroDecorB} />
 
@@ -522,30 +545,30 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </TouchableOpacity>
             </View>
           </Animated.View>
-        </LinearGradient>
+        </View>
 
-        <View style={hubStyles.contentSheet}>
+        <View style={[hubStyles.contentSheet, { backgroundColor: sheetBg }]}>
           <View style={hubStyles.contentInner}>
             <View style={hubStyles.section}>
-              <SectionTitle>User Information</SectionTitle>
+              <SectionTitle isDarkMode={isDarkMode}>User Information</SectionTitle>
               <View style={hubStyles.fieldGrid}>
-                <ReadOnlyField label="Email Address" value={userEmail || ""} />
-                <ReadOnlyField label="User ID" value={userId != null ? String(userId) : ""} />
-                <ReadOnlyField label="First Name" value={profileDetails.firstName} />
-                <ReadOnlyField label="Last Name" value={profileDetails.lastName} />
+                <ReadOnlyField label="Email Address" value={userEmail || ""} isDarkMode={isDarkMode} />
+                <ReadOnlyField label="User ID" value={userId != null ? String(userId) : ""} isDarkMode={isDarkMode} />
+                <ReadOnlyField label="First Name" value={profileDetails.firstName} isDarkMode={isDarkMode} />
+                <ReadOnlyField label="Last Name" value={profileDetails.lastName} isDarkMode={isDarkMode} />
               </View>
             </View>
 
             <View style={hubStyles.section}>
-              <SectionTitle>Contact Information</SectionTitle>
-              <View style={hubStyles.contactCard}>
+              <SectionTitle isDarkMode={isDarkMode}>Contact Information</SectionTitle>
+              <View style={[hubStyles.contactCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
                 <View style={hubStyles.contactRow}>
                   <View style={hubStyles.contactIconPrimary}>
-                    <MaterialIcon name="call" size={20} color={HOME_M3.secondary} />
+                    <MaterialIcon name="call" size={20} color={isDarkMode ? "#60a5fa" : HOME_M3.secondary} />
                   </View>
                   <View style={hubStyles.contactTextCol}>
-                    <Text style={hubStyles.contactLabel}>Primary Contact</Text>
-                    <Text style={hubStyles.contactValue}>
+                    <Text style={[hubStyles.contactLabel, { color: secondaryText }]}>Primary Contact</Text>
+                    <Text style={[hubStyles.contactValue, { color: primaryText }]}>
                       {primaryContact || "Not added"}
                     </Text>
                   </View>
@@ -559,14 +582,29 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </View>
 
               {altContact ? (
-                <View style={[hubStyles.contactCard, hubStyles.contactCardAlt]}>
+                <View
+                  style={[
+                    hubStyles.contactCard,
+                    hubStyles.contactCardAlt,
+                    { backgroundColor: cardBg, borderColor: cardBorder },
+                  ]}
+                >
                   <View style={hubStyles.contactRow}>
-                    <View style={hubStyles.contactIconAlt}>
-                      <MaterialIcon name="contact-phone" size={20} color={HOME_M3.outline} />
+                    <View
+                      style={[
+                        hubStyles.contactIconAlt,
+                        isDarkMode && { backgroundColor: "#334155" },
+                      ]}
+                    >
+                      <MaterialIcon
+                        name="contact-phone"
+                        size={20}
+                        color={isDarkMode ? "#cbd5e1" : HOME_M3.outline}
+                      />
                     </View>
                     <View style={hubStyles.contactTextCol}>
-                      <Text style={hubStyles.contactLabel}>Alternative Contact</Text>
-                      <Text style={hubStyles.contactValue}>{altContact}</Text>
+                      <Text style={[hubStyles.contactLabel, { color: secondaryText }]}>Alternative Contact</Text>
+                      <Text style={[hubStyles.contactValue, { color: primaryText }]}>{altContact}</Text>
                     </View>
                   </View>
                 </View>
@@ -576,7 +614,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
             {userRole === "CUSTOMER" ? (
               <View style={hubStyles.section}>
                 <View style={hubStyles.sectionHeaderRow}>
-                  <SectionTitle>Saved Addresses</SectionTitle>
+                  <SectionTitle isDarkMode={isDarkMode}>Saved Addresses</SectionTitle>
                   <TouchableOpacity
                     style={hubStyles.addNewBtn}
                     onPress={() => {
@@ -584,36 +622,47 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       setSubView("edit");
                     }}
                   >
-                    <MaterialIcon name="add" size={18} color={HOME_M3.secondary} />
-                    <Text style={hubStyles.addNewText}>Add New</Text>
+                    <MaterialIcon name="add" size={18} color={isDarkMode ? "#60a5fa" : HOME_M3.secondary} />
+                    <Text style={[hubStyles.addNewText, isDarkMode && { color: "#60a5fa" }]}>Add New</Text>
                   </TouchableOpacity>
                 </View>
 
                 {addresses.length === 0 ? (
-                  <View style={hubStyles.emptyAddressCard}>
-                    <Text style={hubStyles.emptyAddressText}>No saved addresses yet</Text>
+                  <View style={[hubStyles.emptyAddressCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+                    <Text style={[hubStyles.emptyAddressText, { color: secondaryText }]}>
+                      No saved addresses yet
+                    </Text>
                   </View>
                 ) : (
                   addresses.map((addr) => (
-                    <View key={addr.id} style={hubStyles.addressCard}>
+                    <View key={addr.id} style={[hubStyles.addressCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
                       <View style={hubStyles.addressRow}>
-                        <View style={hubStyles.addressIconWrap}>
-                          <MaterialIcon name="home" size={22} color={HOME_M3.secondary} />
+                        <View
+                          style={[
+                            hubStyles.addressIconWrap,
+                            isDarkMode && { backgroundColor: "#0f172a" },
+                          ]}
+                        >
+                          <MaterialIcon name="home" size={22} color={isDarkMode ? "#60a5fa" : HOME_M3.secondary} />
                         </View>
                         <View style={hubStyles.addressBody}>
                           <View style={hubStyles.addressTitleRow}>
-                            <Text style={hubStyles.addressTitle}>{addr.type}</Text>
+                            <Text style={[hubStyles.addressTitle, { color: primaryText }]}>{addr.type}</Text>
                             <TouchableOpacity onPress={() => setSubView("edit")} hitSlop={8}>
-                              <MaterialIcon name="more-vert" size={20} color={HOME_M3.outline} />
+                              <MaterialIcon
+                                name="more-vert"
+                                size={20}
+                                color={isDarkMode ? "#94a3b8" : HOME_M3.outline}
+                              />
                             </TouchableOpacity>
                           </View>
-                          <Text style={hubStyles.addressText}>{addr.street}</Text>
+                          <Text style={[hubStyles.addressText, { color: secondaryText }]}>{addr.street}</Text>
                         </View>
                       </View>
                       <MaterialIcon
                         name="map"
                         size={110}
-                        color={HOME_M3.onSurface}
+                        color={primaryText}
                         style={hubStyles.addressWatermark}
                       />
                     </View>
@@ -718,9 +767,10 @@ const hubStyles = StyleSheet.create({
   hero: {
     width: "100%",
     alignSelf: "stretch",
-    paddingTop: 4,
-    paddingBottom: 28,
-    overflow: "visible",
+    paddingTop: 12,
+    paddingBottom: 32,
+    overflow: "hidden",
+    position: "relative",
     zIndex: 2,
   },
   heroDecorA: {
@@ -748,12 +798,12 @@ const hubStyles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   avatarOuter: {
-    marginBottom: 24,
+    marginBottom: 18,
   },
   avatarBorder: {
-    width: 128,
-    height: 128,
-    borderRadius: 64,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     borderWidth: 4,
     borderColor: "rgba(255,255,255,0.2)",
     padding: 4,
@@ -763,12 +813,12 @@ const hubStyles = StyleSheet.create({
   avatarImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 60,
+    borderRadius: 56,
   },
   avatarFallback: {
     width: "100%",
     height: "100%",
-    borderRadius: 60,
+    borderRadius: 56,
     backgroundColor: "#FFB3C6",
     alignItems: "center",
     justifyContent: "center",
@@ -785,7 +835,7 @@ const hubStyles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   displayName: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "800",
     color: HOME_M3.onPrimary,
     textAlign: "center",
@@ -796,33 +846,39 @@ const hubStyles = StyleSheet.create({
   handle: {
     fontSize: 14,
     color: "rgba(255,255,255,0.7)",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   statsBar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 32,
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderRadius: 12,
+    justifyContent: "space-between",
+    width: "100%",
+    maxWidth: 340,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    paddingHorizontal: 32,
-    paddingVertical: 16,
+    borderColor: "rgba(255,255,255,0.12)",
+    paddingHorizontal: 12,
+    paddingVertical: 14,
     marginBottom: 20,
   },
   statItem: {
+    flex: 1,
     alignItems: "center",
+    justifyContent: "center",
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
     color: HOME_M3.onPrimary,
+    textAlign: "center",
   },
   statLabel: {
     fontSize: 12,
-    color: "rgba(255,255,255,0.6)",
+    color: "rgba(255,255,255,0.65)",
     marginTop: 4,
     fontWeight: "500",
+    textAlign: "center",
   },
   statDivider: {
     width: 1,
@@ -886,7 +942,7 @@ const hubStyles = StyleSheet.create({
     paddingBottom: 16,
     width: "100%",
     alignSelf: "stretch",
-    zIndex: 1,
+    zIndex: 3,
   },
   contentInner: {
     width: "100%",
