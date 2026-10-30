@@ -1007,6 +1007,13 @@ const MainApp = () => {
     }
   };
 
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      StatusBar.setTranslucent(true);
+      StatusBar.setBackgroundColor("transparent");
+    }
+  }, []);
+
   // Loading Screen - Check for user loading state
   if (isUserLoading || showSplash) {
     return (
@@ -1031,7 +1038,7 @@ const MainApp = () => {
         backgroundColor="transparent"
         barStyle={statusBarStyle}
       />
-      <SafeAreaView
+      <View
         style={[
           styles.safeArea,
           {
@@ -1046,15 +1053,14 @@ const MainApp = () => {
               : currentView === PROFILE
               ? HOME_M3.primary
               : colors.chromeEnd,
+            paddingTop:
+              usesDarkHeroSafeArea ||
+              currentView === PROFILE ||
+              currentView === SP_EARNINGS
+                ? 0
+                : insets.top,
           },
         ]}
-        edges={
-          usesDarkHeroSafeArea ||
-          currentView === PROFILE ||
-          currentView === SP_EARNINGS
-            ? []
-            : ["top"]
-        }
         key={`app-${appResetKey}`}
       >
         <View style={{ flex: 1 }}>
@@ -1138,14 +1144,7 @@ const MainApp = () => {
             ]}
           >
             {shouldRenderWithoutParentScroll ? (
-              <View
-                style={[
-                  styles.mainScrollView,
-                  needsMobileTabBarScrollInset && {
-                    paddingBottom: mobileTabBarClearance,
-                  },
-                ]}
-              >
+              <View style={styles.mainScrollView}>
                 {renderContent()}
               </View>
             ) : (
@@ -1154,9 +1153,6 @@ const MainApp = () => {
                 contentContainerStyle={[
                   styles.scrollContent,
                   isMobile && styles.scrollContentMobile,
-                  needsMobileTabBarScrollInset && {
-                    paddingBottom: mobileTabBarClearance,
-                  },
                   (currentView === BOOKINGS ||
                     currentView === DASHBOARD ||
                     currentView === SP_CALENDAR ||
@@ -1355,7 +1351,7 @@ const MainApp = () => {
             acceptError={acceptError}
           />
         )}
-      </SafeAreaView>
+      </View>
     </PaperProvider>
   );
 };
@@ -1440,9 +1436,8 @@ const styles = StyleSheet.create({
     minHeight: "100%",
   },
   scrollContentMobile: {
-    flexGrow: 0,
+    flexGrow: 1,
     justifyContent: "flex-start",
-    minHeight: undefined,
   },
   fullScreenScrollContent: {
     paddingBottom: 0,
@@ -1471,7 +1466,8 @@ const styles = StyleSheet.create({
     right: 0,
     width: "100%",
     zIndex: 100,
-    backgroundColor: "transparent",
+    marginBottom: 0,
+    paddingBottom: 0,
   },
   deepLinkLoadingOverlay: {
     position: "absolute",

@@ -290,7 +290,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   };
 
   const renderCompactAccountAvatar = () => {
-    const avatarSize = moderateScale(24);
+    const avatarSize = 20;
 
     if (!isAuthenticated) {
       return null;
@@ -304,7 +304,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 },
           ]}
         >
-          <Text style={[styles.compactAvatarInitial, { fontSize: moderateScale(11) }]}>
+          <Text style={[styles.compactAvatarInitial, { fontSize: 10 }]}>
             {appUser.name.charAt(0).toUpperCase()}
           </Text>
         </View>
@@ -312,7 +312,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     }
 
     if (!auth0User) {
-      return <FeatherIcon name="user" size={moderateScale(20)} color={isDarkMode ? "#94a3b8" : "#64748b"} />;
+      return <FeatherIcon name="user" size={16} color={isDarkMode ? "#94a3b8" : "#64748b"} />;
     }
 
     if (auth0User.picture) {
@@ -331,7 +331,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 },
         ]}
       >
-        <Text style={[styles.compactAvatarInitial, { fontSize: moderateScale(11) }]}>
+        <Text style={[styles.compactAvatarInitial, { fontSize: 10 }]}>
           {auth0User.name ? auth0User.name.charAt(0).toUpperCase() : "U"}
         </Text>
       </View>
@@ -348,15 +348,17 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 
     if (tab.isAccount) {
       return (
-        <View
-          style={[
-            styles.compactAvatarRing,
-            isDarkMode && styles.compactAvatarRingDark,
-            isActive && styles.compactAvatarRingActive,
-            isActive && isDarkMode && styles.compactAvatarRingActiveDark,
-          ]}
-        >
-          {renderCompactAccountAvatar()}
+        <View style={styles.navIconSlot}>
+          <View
+            style={[
+              styles.compactAvatarRing,
+              isDarkMode && styles.compactAvatarRingDark,
+              isActive && styles.compactAvatarRingActive,
+              isActive && isDarkMode && styles.compactAvatarRingActiveDark,
+            ]}
+          >
+            {renderCompactAccountAvatar()}
+          </View>
         </View>
       );
     }
@@ -370,7 +372,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         ? iconActiveColor
         : iconMuted;
 
-    const tabIconSize = moderateScale(22);
+    const tabIconSize = 22;
 
     return (
       <View style={styles.navIconSlot}>
@@ -378,7 +380,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           name={tab.iconName ?? "circle"}
           size={tabIconSize}
           color={iconColor}
-          style={[styles.tabBarIconGlyph, { lineHeight: tabIconSize }]}
+          style={styles.tabBarIconGlyph}
         />
       </View>
     );
@@ -595,8 +597,9 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             styles.mobileNavShell,
             {
               borderTopColor: navBorder,
-              paddingTop: MOBILE_TAB_BAR_TOP_PAD,
-              paddingBottom: bottomPad,
+              paddingTop: 4,
+              paddingBottom: Math.max(4, bottomPad, safeBottom),
+              marginBottom: -safeBottom,
             },
           ]}
         >
@@ -629,8 +632,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                         styles.mobileNavText,
                         {
                           color: "rgba(255,255,255,0.7)",
-                          fontSize: moderateScale(10),
-                          lineHeight: moderateScale(12),
+                          fontSize: 10,
                         },
                         isActive && { color: textActiveColor, fontWeight: "600" },
                         tab.variant === "destructive" && styles.mobileNavTextDestructive,
@@ -785,64 +787,71 @@ const styles = StyleSheet.create({
   mobileNavShell: {
     width: "100%",
     alignSelf: "stretch",
-    borderTopWidth: 1,
-    alignItems: "center",
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderTopWidth: 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     shadowColor: "#0f172a",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 8,
   },
-  mobileNavItemActiveHome: {
-    backgroundColor: "white",
-    transform: [{ scale: 0.92 }],
-  },
   mobileNavContainer: {
     width: "100%",
     height: MOBILE_TAB_BAR_CONTENT_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4,
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+    gap: 4,
   },
   mobileNavItem: {
     flex: 1,
     minWidth: 0,
-    height: MOBILE_TAB_BAR_CONTENT_HEIGHT,
+    height: MOBILE_TAB_BAR_CONTENT_HEIGHT - 4,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
     borderRadius: 12,
+  },
+  mobileNavItemActiveHome: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    shadowColor: "#00BFFF",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   mobileNavItemContent: {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
+    gap: 2,
   },
   navIconSlot: {
-    width: 28,
-    height: 28,
+    width: 24,
+    height: 24,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 2,
   },
   tabBarIconGlyph: {
-    width: 28,
-    height: 28,
     textAlign: "center",
-    textAlignVertical: "center",
     ...Platform.select({
-      android: { includeFontPadding: false },
-      default: {},
+      android: {
+        includeFontPadding: false,
+        textAlignVertical: "center",
+      },
+      ios: {
+        lineHeight: 22,
+      },
     }),
   },
   compactAvatarRing: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -871,17 +880,18 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   mobileNavText: {
+    fontSize: 10,
+    lineHeight: 12,
     fontWeight: "500",
     textAlign: "center",
-    alignSelf: "center",
     width: "100%",
-    letterSpacing: 0.1,
-    maxWidth: "100%",
-    flexShrink: 1,
+    letterSpacing: 0,
     marginTop: 0,
-    paddingTop: 0,
     ...Platform.select({
-      android: { includeFontPadding: false, textAlignVertical: "center" },
+      android: {
+        includeFontPadding: false,
+        textAlignVertical: "center",
+      },
       default: {},
     }),
   },

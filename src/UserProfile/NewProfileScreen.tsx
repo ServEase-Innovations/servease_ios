@@ -34,6 +34,7 @@ import {
 import preferenceInstance from "../services/preferenceInstance";
 import PaymentInstance from "../services/paymentInstance";
 import { HOME_M3 } from "../theme/brandColors";
+import { getMobileTabBarHeight } from "../Constants/mobileLayout";
 
 type ProfileSubView = "hub" | "edit";
 type ProfileEditIntent = "profile" | "addAddress";
@@ -383,6 +384,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     return <ProfileHubSkeleton />;
   }
 
+  const footerClearance = getMobileTabBarHeight(insets.bottom);
+
   if (subView === "edit") {
     const editTitle = editIntent === "addAddress" ? "Add New Address" : "Edit Profile";
 
@@ -404,7 +407,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </Text>
           <View style={{ width: 40 }} />
         </View>
-        <View style={styles.editBody}>
+        <View style={[styles.editBody, { paddingBottom: footerClearance }]}>
           {userRole === "CUSTOMER" ? (
             <CustomerProfileSection
               userId={userId}
@@ -437,7 +440,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const ordersLabel = orderCount != null ? String(orderCount) : "—";
 
   return (
-    <View style={[styles.container, { backgroundColor: HOME_M3.primary }]}>
+    <View style={[styles.container, { backgroundColor: HOME_M3.surfaceContainerLowest }]}>
       <StatusBar barStyle="light-content" backgroundColor={HOME_M3.primary} />
 
       <ProfileNavBar onBack={onBack} topInset={navTop} />
@@ -448,7 +451,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         style={hubStyles.scroll}
         contentContainerStyle={[
           hubStyles.scrollContent,
-          { paddingTop: navHeight, paddingBottom: 12 },
+          { paddingTop: navHeight, paddingBottom: footerClearance + 16 },
         ]}
       >
         <LinearGradient

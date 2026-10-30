@@ -250,7 +250,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
                       <Icon name="account-circle" size={60} color="#FFFFFF" />
                     </View>
                   </View>
-                  <Text style={[styles.title, { fontSize: 24, marginBottom: 10 }]}>Welcome to ServEase</Text>
+                  <Text style={[styles.title, { fontSize: 24, marginBottom: 10 }]}>Welcome to ServEaso</Text>
                   <Text style={[styles.description, { fontSize: 14, marginBottom: 40, paddingHorizontal: 30 }]}>
                     Choose how you'd like to get started
                   </Text>

@@ -17,6 +17,7 @@ import { useDispatch } from "react-redux";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { add } from "../features/bookingTypeSlice";
 import { DETAILS } from "../Constants/pagesConstants";
+import { getMobileTabBarHeight } from "../Constants/mobileLayout";
 import LinearGradient from "react-native-linear-gradient";
 import { useAuth0 } from "react-native-auth0";
 import { useAppUser } from "../context/AppUserContext";
@@ -388,11 +389,14 @@ const HomePage: React.FC<ChildComponentProps> = ({
     setShowHowItWorks(true);
   };
 
+  const mobileTabBarClearance = screenWidth < 768 ? getMobileTabBarHeight(insets.bottom) : 0;
+
   return (
     <View style={dynamicStyles.mainContainer}>
       <ScrollView
         ref={scrollRef}
         style={[dynamicStyles.container, { backgroundColor: sheetBg }]}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: mobileTabBarClearance }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header: straight-edged blue gradient with the search bar straddling its bottom edge */}
@@ -753,7 +757,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
 };
 
 const styles = StyleSheet.create({
-  siteFooterWrap: { alignSelf: "stretch", marginTop: 8 },
+  siteFooterWrap: { alignSelf: "stretch", marginTop: "auto", paddingTop: 8 },
 
   statusBarCover: {
     position: "absolute",
@@ -770,6 +774,7 @@ const styles = StyleSheet.create({
   },
 
   contentSheet: {
+    flex: 1,
     marginTop: 0,
     zIndex: 1,
   },

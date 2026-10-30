@@ -594,6 +594,7 @@ const AgentDashboard: React.FC = () => {
 
       <ScrollView 
         style={[styles.content, { backgroundColor: colors.background }]} 
+        contentContainerStyle={{ paddingBottom: 80 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
