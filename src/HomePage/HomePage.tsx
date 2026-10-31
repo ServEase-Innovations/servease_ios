@@ -54,12 +54,10 @@ const heroImage = require("../../assets/images/iconhome.png");
 
 type ServiceType = "COOK" | "MAID" | "NANNY";
 
-const SHEET_LIGHT_BG = "#EAF4FE";
+const SHEET_LIGHT_BG = "#FFFFFF";
 const SEARCH_HEIGHT = 58;
 // Space under the search bar inside the header (room for its shadow)
 const SEARCH_BOTTOM_PAD = 14;
-// Gradient ends at the vertical middle of the search bar
-const GRADIENT_BOTTOM_INSET = SEARCH_HEIGHT / 2 + SEARCH_BOTTOM_PAD;
 
 const HERO_FEATURE_CHIPS = [
   { key: "trusted", icon: "check-circle-outline", label: "Trusted Pros" },
@@ -399,73 +397,79 @@ const HomePage: React.FC<ChildComponentProps> = ({
         contentContainerStyle={{ flexGrow: 1, paddingBottom: mobileTabBarClearance }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header: straight-edged blue gradient with the search bar straddling its bottom edge */}
+        {/* Header: blue gradient top bar up to the location selector, white hero section below */}
         <View style={[styles.headerSection, { backgroundColor: sheetBg }]}>
           <HomeHeroChrome
             closeDropdowns={closeDropdowns}
             onLogoPress={onLogoClick}
             topPadding={8}
             gradientColors={HOME_PAGE_GRADIENT}
-            gradientBottomInset={GRADIENT_BOTTOM_INSET}
-          >
-            {/* Hero Title + Illustration */}
-            <View style={styles.heroRow}>
-              <Text
-                style={[
-                  styles.heroTitleWhite,
-                  { fontSize: fontSize === "large" ? heroTitleSize + 6 : heroTitleSize + 4 },
-                ]}
-              >
-                {t("home.hero.title")}
-              </Text>
-              <View style={styles.heroIllustration} pointerEvents="none">
-                <Image source={heroImage} style={styles.heroImg} resizeMode="contain" />
-              </View>
-            </View>
+          />
 
-            <View style={styles.chipsRow}>
-              {HERO_FEATURE_CHIPS.map((chip) => (
-                <View key={chip.key} style={styles.heroChipWhite}>
-                  <Icon name={chip.icon} size={16} color="#1D6FD8" />
-                  <Text style={styles.heroChipTextWhite}>{chip.label}</Text>
+          {/* Hero Title + Illustration on white background */}
+          <View style={styles.heroRow}>
+            <Text
+              style={[
+                styles.heroTitleWhite,
+                {
+                  color: isDarkMode ? "#38BDF8" : "#0284C7",
+                  fontSize: fontSize === "large" ? heroTitleSize + 6 : heroTitleSize + 4,
+                },
+              ]}
+            >
+              {t("home.hero.title")}
+            </Text>
+            <View style={styles.heroIllustration} pointerEvents="none">
+              <Image source={heroImage} style={styles.heroImg} resizeMode="contain" />
+            </View>
+          </View>
+
+          <View style={styles.chipsRow}>
+            {HERO_FEATURE_CHIPS.map((chip) => (
+              <View key={chip.key} style={styles.heroChipWhite}>
+                <Icon name={chip.icon} size={16} color="#1D6FD8" />
+                <Text style={styles.heroChipTextWhite}>{chip.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Search bar */}
+          <View style={[styles.searchOuter, { paddingHorizontal: contentPadding }]}>
+            <View
+              style={[
+                styles.searchWrap,
+                {
+                  backgroundColor: isDarkMode ? colors.surface2 : "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: isDarkMode ? colors.border : "#DBEAFE",
+                },
+              ]}
+            >
+              <Icon name="search" size={24} color={HOME_M3.outline} style={styles.searchIcon} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.text }]}
+                placeholder="Find a cook, maid, or cleaner..."
+                placeholderTextColor={HOME_M3.outline}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 ? (
+                <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={8}>
+                  <Icon name="close" size={20} color={HOME_M3.outline} />
+                </TouchableOpacity>
+              ) : (
+                <View
+                  style={[
+                    styles.searchTuneWrap,
+                    { borderLeftColor: isDarkMode ? colors.border : "#E2E8F0" },
+                  ]}
+                >
+                  <Icon name="tune" size={24} color={colors.textSecondary} />
                 </View>
-              ))}
+              )}
             </View>
-
-            {/* Search bar */}
-            <View style={[styles.searchOuter, { paddingHorizontal: contentPadding }]}>
-              <View
-                style={[
-                  styles.searchWrap,
-                  { backgroundColor: isDarkMode ? colors.surface2 : "#FFFFFF" },
-                ]}
-              >
-                <Icon name="search" size={24} color={HOME_M3.outline} style={styles.searchIcon} />
-                <TextInput
-                  style={[styles.searchInput, { color: colors.text }]}
-                  placeholder="Find a cook, maid, or cleaner..."
-                  placeholderTextColor={HOME_M3.outline}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  returnKeyType="search"
-                />
-                {searchQuery.length > 0 ? (
-                  <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={8}>
-                    <Icon name="close" size={20} color={HOME_M3.outline} />
-                  </TouchableOpacity>
-                ) : (
-                  <View
-                    style={[
-                      styles.searchTuneWrap,
-                      { borderLeftColor: isDarkMode ? colors.border : "#E2E8F0" },
-                    ]}
-                  >
-                    <Icon name="tune" size={24} color={colors.textSecondary} />
-                  </View>
-                )}
-              </View>
-            </View>
-          </HomeHeroChrome>
+          </View>
         </View>
 
         {/* Content Section (seamless with the area under the header) */}
@@ -860,7 +864,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    marginTop: 0,
+    marginTop: 10,
     minHeight: 150,
   },
   heroIllustration: {
@@ -871,7 +875,7 @@ const styles = StyleSheet.create({
   heroImg: { position: "absolute", bottom: -14, right: -8, width: "112%", height: "100%" },
 
   heroTitleWhite: {
-    color: "#FFFFFF",
+    color: "#0284C7",
     fontWeight: "800",
     lineHeight: 34,
     maxWidth: "54%",

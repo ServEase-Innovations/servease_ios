@@ -1171,7 +1171,7 @@ const MainApp = () => {
 
           {/* Fixed Navigation Footer for Mobile */}
           {isMobile && (
-            <View style={styles.navigationFooterContainer}>
+            <View pointerEvents="box-none" style={styles.navigationFooterContainer}>
               <NavigationFooter
                 activePage={currentView}
                 onHomeClick={handleHomeClick}
