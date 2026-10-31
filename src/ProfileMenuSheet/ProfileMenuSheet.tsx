@@ -209,12 +209,13 @@ const ProfileMenuSheet: React.FC<Props> = ({
     label: string;
     subtitle?: string;
     icon: string;
+    destructive?: boolean;
     onPress: () => void;
   }> = [
     {
       key: "profile",
-      label: "Account",
-      subtitle: "Personal details & preferences",
+      label: "My Account",
+      subtitle: "Personal details, addresses & contact info",
       icon: "person-outline",
       onPress: () => {
         dismissSheet();
@@ -278,6 +279,7 @@ const ProfileMenuSheet: React.FC<Props> = ({
       label: "Sign out",
       subtitle: "Log out of your account",
       icon: "logout",
+      destructive: true,
       onPress: () => {
         dismissSheet();
         onLogout();
@@ -350,7 +352,14 @@ const ProfileMenuSheet: React.FC<Props> = ({
                 </TouchableOpacity> */}
               </View>
 
-              <View style={styles.profileRow}>
+              <TouchableOpacity
+                style={styles.profileRow}
+                activeOpacity={0.85}
+                onPress={() => {
+                  dismissSheet();
+                  onProfile();
+                }}
+              >
                 <View style={styles.avatarWrap}>
                   {getUserAvatar() ? (
                     <Image source={{ uri: getUserAvatar() }} style={styles.avatarImage} />
@@ -375,7 +384,11 @@ const ProfileMenuSheet: React.FC<Props> = ({
                     </Text>
                   ) : null}
                 </View>
-              </View>
+
+                <View style={styles.profileChevronWrap}>
+                  <MaterialIcon name="chevron-right" size={20} color="#ffffff" />
+                </View>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -395,6 +408,7 @@ const ProfileMenuSheet: React.FC<Props> = ({
                     label={item.label}
                     subtitle={item.subtitle}
                     icon={item.icon}
+                    destructive={item.destructive}
                     onPress={item.onPress}
                     primaryText={primaryText}
                     mutedText={mutedText}
@@ -431,6 +445,7 @@ const MenuRow = ({
   label,
   subtitle,
   icon,
+  destructive,
   onPress,
   primaryText,
   mutedText,
@@ -440,32 +455,40 @@ const MenuRow = ({
   label: string;
   subtitle?: string;
   icon: string;
+  destructive?: boolean;
   onPress: () => void;
   primaryText: string;
   mutedText: string;
   accent: string;
   isDarkMode: boolean;
-}) => (
-  <TouchableOpacity style={styles.menuRow} onPress={onPress} activeOpacity={0.65}>
-    <View
-      style={[
-        styles.iconWrap,
-        { backgroundColor: isDarkMode ? "#0f172a" : "#eff6ff" },
-      ]}
-    >
-      <MaterialIcon name={icon} size={22} color={accent} />
-    </View>
-    <View style={styles.menuRowText}>
-      <Text style={[styles.menuLabel, { color: primaryText }]}>{label}</Text>
-      {subtitle ? (
-        <Text style={[styles.menuSubtitle, { color: mutedText }]} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      ) : null}
-    </View>
-    <MaterialIcon name="chevron-right" size={22} color={mutedText} />
-  </TouchableOpacity>
-);
+}) => {
+  const iconBg = destructive
+    ? isDarkMode
+      ? "rgba(239, 68, 68, 0.14)"
+      : "#fef2f2"
+    : isDarkMode
+    ? "#0f172a"
+    : "#eff6ff";
+  const iconColor = destructive ? "#ef4444" : accent;
+  const titleColor = destructive ? "#ef4444" : primaryText;
+
+  return (
+    <TouchableOpacity style={styles.menuRow} onPress={onPress} activeOpacity={0.65}>
+      <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
+        <MaterialIcon name={icon} size={22} color={iconColor} />
+      </View>
+      <View style={styles.menuRowText}>
+        <Text style={[styles.menuLabel, { color: titleColor }]}>{label}</Text>
+        {subtitle ? (
+          <Text style={[styles.menuSubtitle, { color: mutedText }]} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      <MaterialIcon name="chevron-right" size={22} color={mutedText} />
+    </TouchableOpacity>
+  );
+};
 
 const styles = StyleSheet.create({
   overlay: {
@@ -563,9 +586,17 @@ const styles = StyleSheet.create({
   userTextCol: {
     flex: 1,
     minWidth: 0,
-    paddingRight: 36,
+    paddingRight: 8,
     justifyContent: "center",
     paddingBottom: 2,
+  },
+  profileChevronWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   rolePill: {
     flexDirection: "row",

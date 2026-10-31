@@ -41,6 +41,8 @@ type HomeHeroChromeProps = {
   gradientBottomInset?: number;
   /** Extra content rendered inside the gradient header, below the location row. */
   children?: React.ReactNode;
+  /** Scroll offset from parent ScrollView to animate into a compact sticky bar. */
+  scrollY?: Animated.Value;
 };
 
 const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
@@ -51,6 +53,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
   gradientColors = HOME_HERO_GRADIENT,
   gradientBottomInset,
   children,
+  scrollY,
 }) => {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
@@ -158,13 +161,80 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
   }, [appUser]);
 
   const hasInset = typeof gradientBottomInset === "number";
+  const baseTopPad = Math.max(insets.top, compact ? 6 : 10) + topPadding;
+  const compactTopPad = Math.max(insets.top, 6) + 2;
+
+  const animatedContainerPadBottom = scrollY
+    ? scrollY.interpolate({
+        inputRange: [0, 80],
+        outputRange: [18, 8],
+        extrapolate: "clamp",
+      })
+    : undefined;
+
+  const animatedTopRowPadTop = scrollY
+    ? scrollY.interpolate({
+        inputRange: [0, 80],
+        outputRange: [baseTopPad, compactTopPad],
+        extrapolate: "clamp",
+      })
+    : baseTopPad;
+
+  const animatedTopRowPadBottom = scrollY
+    ? scrollY.interpolate({
+        inputRange: [0, 80],
+        outputRange: [compact ? 10 : 12, 2],
+        extrapolate: "clamp",
+      })
+    : undefined;
+
+  const animatedWordmarkScale = scrollY
+    ? scrollY.interpolate({
+        inputRange: [0, 80],
+        outputRange: [1, 0.82],
+        extrapolate: "clamp",
+      })
+    : 1;
+
+  const animatedWordmarkTranslateX = scrollY
+    ? scrollY.interpolate({
+        inputRange: [0, 80],
+        outputRange: [0, -12],
+        extrapolate: "clamp",
+      })
+    : 0;
+
+  const animatedNotifScale = scrollY
+    ? scrollY.interpolate({
+        inputRange: [0, 80],
+        outputRange: [1, 0.88],
+        extrapolate: "clamp",
+      })
+    : 1;
+
+  const animatedLocationPillBg = scrollY
+    ? scrollY.interpolate({
+        inputRange: [0, 80],
+        outputRange: ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 0.14)"],
+        extrapolate: "clamp",
+      })
+    : "transparent";
+
+  const animatedStickyBorderOpacity = scrollY
+    ? scrollY.interpolate({
+        inputRange: [0, 60],
+        outputRange: [0, 1],
+        extrapolate: "clamp",
+      })
+    : 0;
 
   return (
     <>
-      <View
+      <Animated.View
         style={[
           styles.headerContainer,
           children ? (hasInset ? styles.headerContainerOverlap : styles.headerContainerWithContent) : null,
+          animatedContainerPadBottom != null ? { paddingBottom: animatedContainerPadBottom } : null,
         ]}
       >
         {/* Straight-edged gradient. With gradientBottomInset it ends above the
@@ -177,12 +247,18 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
             StyleSheet.absoluteFillObject,
             hasInset ? { bottom: gradientBottomInset } : null,
           ]}
+          pointerEvents="none"
         />
-        <View
+        <Animated.View
           style={[
             styles.topRow,
             compact && styles.topRowCompact,
-            { paddingTop: Math.max(insets.top, compact ? 6 : 10) + topPadding },
+            {
+              paddingTop: animatedTopRowPadTop,
+              ...(animatedTopRowPadBottom != null
+                ? { paddingBottom: animatedTopRowPadBottom }
+                : null),
+            },
           ]}
         >
           <TouchableOpacity
@@ -193,7 +269,14 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
             accessibilityRole="button"
             accessibilityLabel="ServEaso home"
           >
-            <Animated.View style={{ transform: [{ scale: logoScale }] }}>
+            <Animated.View
+              style={{
+                transform: [
+                  { translateX: animatedWordmarkTranslateX },
+                  { scale: Animated.multiply(logoScale, animatedWordmarkScale as any) },
+                ],
+              }}
+            >
               <Text style={[styles.wordmark, compact && styles.wordmarkCompact]}>
                 ServEaso
               </Text>
@@ -207,7 +290,16 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
               activeOpacity={1}
               accessibilityLabel="Notifications"
             >
-              <Animated.View style={[styles.notifBtn, { transform: [{ scale: notifScale }] }]}>
+              <Animated.View
+                style={[
+                  styles.notifBtn,
+                  {
+                    transform: [
+                      { scale: Animated.multiply(notifScale, animatedNotifScale as any) },
+                    ],
+                  },
+                ]}
+              >
                 <MaterialIcon name="notifications-none" size={26} color="#FFFFFF" />
                 {inAppUnread > 0 ? (
                   <View style={styles.unreadBadge}>
@@ -219,24 +311,37 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
               </Animated.View>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
 
         {!compact ? (
           <View style={styles.locationRow}>
-            <LocationSelector
-              key={String(resolveCustomerId(appUser) ?? "guest")}
-              userPreference={userPreference}
-              setUserPreference={setUserPreference}
-              onLocationChange={handleLocationChange}
-              closeDropdown={closeDropdowns}
-              locationPreferencesReady={locationPreferencesReady}
-              isUserLoading={isUserLoading}
-              variant="chrome"
-            />
+            <Animated.View
+              style={[
+                styles.locationPillWrap,
+                scrollY ? { backgroundColor: animatedLocationPillBg } : null,
+              ]}
+            >
+              <LocationSelector
+                key={String(resolveCustomerId(appUser) ?? "guest")}
+                userPreference={userPreference}
+                setUserPreference={setUserPreference}
+                onLocationChange={handleLocationChange}
+                closeDropdown={closeDropdowns}
+                locationPreferencesReady={locationPreferencesReady}
+                isUserLoading={isUserLoading}
+                variant="chrome"
+              />
+            </Animated.View>
           </View>
         ) : null}
         {children}
-      </View>
+        {scrollY ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.stickyBottomHighlight, { opacity: animatedStickyBorderOpacity }]}
+          />
+        ) : null}
+      </Animated.View>
 
       <NotificationsDialog
         visible={showNotifications}
@@ -294,6 +399,21 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
     zIndex: 10000,
     overflow: "visible",
+  },
+  locationPillWrap: {
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginHorizontal: -6,
+    overflow: "visible",
+  },
+  stickyBottomHighlight: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
   },
   notifBtn: {
     width: 48,

@@ -120,6 +120,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const scrollRef = useRef<ScrollView>(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
   const [selectedServiceForDetails, setSelectedServiceForDetails] = useState<ServiceType | null>(null);
 
   const services = useMemo(
@@ -391,20 +392,30 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
   return (
     <View style={dynamicStyles.mainContainer}>
-      <ScrollView
-        ref={scrollRef}
+      {/* Sticky animated top bar: keeps ServEaso and LocationSelector always visible and compacts on scroll */}
+      <HomeHeroChrome
+        closeDropdowns={closeDropdowns}
+        onLogoPress={() => {
+          scrollRef.current?.scrollTo({ y: 0, animated: true });
+          onLogoClick?.();
+        }}
+        topPadding={8}
+        gradientColors={HOME_PAGE_GRADIENT}
+        scrollY={scrollY}
+      />
+      <Animated.ScrollView
+        ref={scrollRef as any}
         style={[dynamicStyles.container, { backgroundColor: sheetBg }]}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: mobileTabBarClearance }}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
       >
-        {/* Header: blue gradient top bar up to the location selector, white hero section below */}
+        {/* Hero section on white background below the sticky location header */}
         <View style={[styles.headerSection, { backgroundColor: sheetBg }]}>
-          <HomeHeroChrome
-            closeDropdowns={closeDropdowns}
-            onLogoPress={onLogoClick}
-            topPadding={8}
-            gradientColors={HOME_PAGE_GRADIENT}
-          />
 
           {/* Hero Title + Illustration on white background */}
           <View style={styles.heroRow}>
@@ -801,7 +812,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
             </View>
           ) : null}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Gradient cover behind the status bar so scrolled content never shows through the clock/battery */}
       {insets.top > 0 ? (

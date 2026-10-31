@@ -59,34 +59,82 @@ const formatJoinedLabel = (raw: string | null | undefined): string => {
   return d.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
 };
 
+const formatCleanName = (raw: string | null | undefined): string => {
+  if (!raw) return "";
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  return trimmed
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
+const formatRoleBadge = (role: "CUSTOMER" | "SERVICE_PROVIDER" | "VENDOR"): string => {
+  switch (role) {
+    case "SERVICE_PROVIDER":
+      return "Service Provider";
+    case "VENDOR":
+      return "Agent";
+    default:
+      return "Customer";
+  }
+};
+
+const getAddressIconName = (type: string): string => {
+  const normalized = (type || "").toLowerCase();
+  if (normalized.includes("home")) return "home";
+  if (normalized.includes("work") || normalized.includes("office")) return "work";
+  return "location-on";
+};
+
 const SectionTitle = ({ children, isDarkMode }: { children: string; isDarkMode?: boolean }) => (
   <Text style={[hubStyles.sectionTitle, isDarkMode && { color: "#94a3b8" }]}>{children}</Text>
 );
 
-const ReadOnlyField = ({
+const InfoRow = ({
+  icon,
   label,
   value,
   isDarkMode,
+  primaryText,
+  secondaryText,
+  rightBadge,
+  isLast,
+  dividerColor,
 }: {
+  icon: string;
   label: string;
   value: string;
   isDarkMode?: boolean;
+  primaryText: string;
+  secondaryText: string;
+  rightBadge?: React.ReactNode;
+  isLast?: boolean;
+  dividerColor: string;
 }) => (
-  <View style={hubStyles.fieldWrap}>
-    <Text style={[hubStyles.fieldLabel, isDarkMode && { color: "#cbd5e1" }]}>{label}</Text>
-    <View
-      style={[
-        hubStyles.fieldBox,
-        isDarkMode && {
-          backgroundColor: "#1e293b",
-          borderColor: "#334155",
-        },
-      ]}
-    >
-      <Text style={[hubStyles.fieldValue, isDarkMode && { color: "#f8fafc" }]} numberOfLines={3}>
-        {value || "—"}
-      </Text>
+  <View>
+    <View style={hubStyles.infoRow}>
+      <View
+        style={[
+          hubStyles.infoIconWrap,
+          { backgroundColor: isDarkMode ? "rgba(56, 189, 248, 0.12)" : "#E0F2FE" },
+        ]}
+      >
+        <MaterialIcon
+          name={icon}
+          size={19}
+          color={isDarkMode ? "#38bdf8" : "#0284c7"}
+        />
+      </View>
+      <View style={hubStyles.infoTextCol}>
+        <Text style={[hubStyles.infoLabel, { color: secondaryText }]}>{label}</Text>
+        <Text style={[hubStyles.infoValue, { color: primaryText }]} numberOfLines={2}>
+          {value || "Not set"}
+        </Text>
+      </View>
+      {rightBadge}
     </View>
+    {!isLast && <View style={[hubStyles.infoDivider, { backgroundColor: dividerColor }]} />}
   </View>
 );
 
@@ -98,13 +146,15 @@ export interface ProfileScreenProps {
   onSignOutComplete?: () => Promise<void>;
 }
 
-const PROFILE_NAV_ROW_HEIGHT = 28;
+const PROFILE_NAV_ROW_HEIGHT = 44;
 
 const ProfileNavBar = ({
   onBack,
+  onEdit,
   topInset,
 }: {
   onBack: () => void;
+  onEdit: () => void;
   topInset: number;
 }) => (
   <View style={[hubStyles.navBar, { paddingTop: topInset }]}>
@@ -112,11 +162,19 @@ const ProfileNavBar = ({
       onPress={onBack}
       style={hubStyles.navBackBtn}
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      accessibilityLabel="Go back"
     >
-      <MaterialIcon name="arrow-back" size={18} color={HOME_M3.onPrimary} />
+      <MaterialIcon name="arrow-back" size={20} color={HOME_M3.onPrimary} />
     </TouchableOpacity>
-    <Text style={hubStyles.navTitle}>Profile</Text>
-    <View style={hubStyles.navSpacer} />
+    <Text style={hubStyles.navTitle}>My Account</Text>
+    <TouchableOpacity
+      onPress={onEdit}
+      style={hubStyles.navActionBtn}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      accessibilityLabel="Edit profile"
+    >
+      <MaterialIcon name="edit" size={18} color={HOME_M3.onPrimary} />
+    </TouchableOpacity>
   </View>
 );
 
@@ -377,8 +435,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   const getDisplayName = () => {
     const full = `${profileDetails.firstName} ${profileDetails.lastName}`.trim();
-    if (full) return full;
-    return userName || appUser?.name || t("profile.page.user");
+    if (full) return formatCleanName(full);
+    const fallback = userName || appUser?.name || t("profile.page.user");
+    return formatCleanName(fallback) || fallback;
   };
 
   const getAvatarUri = () => appUser?.picture || auth0User?.picture || null;
@@ -452,19 +511,38 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const altContact = profileDetails.altContact
     ? formatContactDisplay(profileDetails.altContact)
     : null;
-  const joinedLabel = formatJoinedLabel(profileDetails.joinedAt);
-  const ordersLabel = orderCount != null ? String(orderCount) : "—";
-  const sheetBg = isDarkMode ? "#0f172a" : HOME_M3.surfaceContainerLowest;
-  const cardBg = isDarkMode ? "#1e293b" : HOME_M3.surfaceContainerLow;
-  const cardBorder = isDarkMode ? "#334155" : "rgba(196, 198, 207, 0.3)";
-  const primaryText = isDarkMode ? "#f8fafc" : HOME_M3.onSurface;
-  const secondaryText = isDarkMode ? "#cbd5e1" : HOME_M3.onSurfaceVariant;
+  const joinedLabel = formatJoinedLabel(
+    profileDetails.joinedAt || (auth0User as any)?.created_at || null
+  );
+  const ordersLabel = orderCount != null ? String(orderCount) : "0";
+  const secondStatValue =
+    userRole === "CUSTOMER" ? String(addresses.length) : "Active";
+  const secondStatLabel =
+    userRole === "CUSTOMER" ? "Addresses" : "Status";
+  const thirdStatValue = joinedLabel !== "—" ? joinedLabel : "Verified";
+  const thirdStatLabel = joinedLabel !== "—" ? "Joined" : "Status";
+  const sheetBg = isDarkMode ? "#0f172a" : "#F8FAFC";
+  const cardBg = isDarkMode ? "#1e293b" : "#FFFFFF";
+  const cardBorder = isDarkMode ? "#334155" : "#E2E8F0";
+  const primaryText = isDarkMode ? "#f8fafc" : "#0F172A";
+  const secondaryText = isDarkMode ? "#94a3b8" : "#64748B";
+  const cleanFirstName = formatCleanName(profileDetails.firstName);
+  const cleanLastName = formatCleanName(profileDetails.lastName);
+  const fullNameValue =
+    `${cleanFirstName} ${cleanLastName}`.trim() || getDisplayName();
 
   return (
     <View style={[styles.container, { backgroundColor: sheetBg }]}>
-      <StatusBar barStyle="light-content" backgroundColor={HOME_M3.primary} />
+      <StatusBar barStyle="light-content" backgroundColor="#0284c7" />
 
-      <ProfileNavBar onBack={onBack} topInset={navTop} />
+      <ProfileNavBar
+        onBack={onBack}
+        onEdit={() => {
+          setEditIntent("profile");
+          setSubView("edit");
+        }}
+        topInset={navTop}
+      />
 
       <ScrollView
         ref={scrollViewRef}
@@ -472,15 +550,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         style={hubStyles.scroll}
         contentContainerStyle={[
           hubStyles.scrollContent,
-          { paddingTop: navHeight, paddingBottom: footerClearance + 16 },
+          { paddingTop: navHeight, paddingBottom: footerClearance + 40 },
         ]}
       >
         <View style={hubStyles.hero}>
           <LinearGradient
-            colors={[HOME_M3.primaryContainer, HOME_M3.primary]}
+            colors={["#0284c7", "#0891b2", "#06b6d4"]}
             style={StyleSheet.absoluteFillObject}
-            start={{ x: 0.2, y: 0 }}
-            end={{ x: 0.8, y: 1 }}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
             pointerEvents="none"
           />
           <View style={hubStyles.heroDecorA} />
@@ -492,7 +570,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               { transform: [{ scale: headerScale }], opacity: headerOpacity },
             ]}
           >
-            <View style={hubStyles.avatarOuter}>
+            <TouchableOpacity
+              style={hubStyles.avatarOuter}
+              activeOpacity={0.85}
+              onPress={() => {
+                setEditIntent("profile");
+                setSubView("edit");
+              }}
+            >
               <View style={hubStyles.avatarBorder}>
                 {avatarUri ? (
                   <Image source={{ uri: avatarUri }} style={hubStyles.avatarImage} />
@@ -502,6 +587,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   </View>
                 )}
               </View>
+              <View style={hubStyles.avatarEditBadge}>
+                <MaterialIcon name="edit" size={14} color="#0284c7" />
+              </View>
+            </TouchableOpacity>
+
+            <View style={hubStyles.roleBadgePill}>
+              <MaterialIcon name="verified-user" size={12} color="#E0F2FE" />
+              <Text style={hubStyles.roleBadgeText}>{formatRoleBadge(userRole)}</Text>
             </View>
 
             <Text style={hubStyles.displayName}>{getDisplayName()}</Text>
@@ -510,24 +603,29 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <Animated.View style={[hubStyles.statsBar, { opacity: statsOpacity }]}>
               <View style={hubStyles.statItem}>
                 <Text style={hubStyles.statValue}>{ordersLabel}</Text>
-                <Text style={hubStyles.statLabel}>Orders</Text>
+                <Text style={hubStyles.statLabel}>Bookings</Text>
               </View>
               <View style={hubStyles.statDivider} />
               <View style={hubStyles.statItem}>
-                <Text style={hubStyles.statValue}>—</Text>
-                <Text style={hubStyles.statLabel}>Reviews</Text>
+                <Text style={hubStyles.statValue}>{secondStatValue}</Text>
+                <Text style={hubStyles.statLabel}>{secondStatLabel}</Text>
               </View>
               <View style={hubStyles.statDivider} />
               <View style={hubStyles.statItem}>
-                <Text style={hubStyles.statValue}>{joinedLabel}</Text>
-                <Text style={hubStyles.statLabel}>Joined</Text>
+                <Text style={hubStyles.statValue}>{thirdStatValue}</Text>
+                <Text style={hubStyles.statLabel}>{thirdStatLabel}</Text>
               </View>
             </Animated.View>
 
             {userRole === "CUSTOMER" && hasMobileNumber === false ? (
-              <TouchableOpacity style={hubStyles.mobileHint} onPress={() => setMobileDialogOpen(true)}>
-                <MaterialIcon name="phone-android" size={16} color="#f59e0b" />
-                <Text style={hubStyles.mobileHintText}>Add mobile number</Text>
+              <TouchableOpacity
+                style={hubStyles.mobileHint}
+                onPress={() => setMobileDialogOpen(true)}
+                activeOpacity={0.85}
+              >
+                <MaterialIcon name="phone-android" size={16} color="#FEF3C7" />
+                <Text style={hubStyles.mobileHintText}>Add mobile number for booking updates</Text>
+                <MaterialIcon name="arrow-forward-ios" size={12} color="#FEF3C7" />
               </TouchableOpacity>
             ) : null}
 
@@ -540,8 +638,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 }}
                 activeOpacity={0.9}
               >
-                <Text style={hubStyles.editBtnText}>Edit Profile</Text>
-                <MaterialIcon name="edit" size={18} color={HOME_M3.primary} />
+                <MaterialIcon name="edit" size={16} color="#0284C7" />
+                <Text style={hubStyles.editBtnText}>Edit Account Details</Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
@@ -550,65 +648,96 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <View style={[hubStyles.contentSheet, { backgroundColor: sheetBg }]}>
           <View style={hubStyles.contentInner}>
             <View style={hubStyles.section}>
-              <SectionTitle isDarkMode={isDarkMode}>User Information</SectionTitle>
-              <View style={hubStyles.fieldGrid}>
-                <ReadOnlyField label="Email Address" value={userEmail || ""} isDarkMode={isDarkMode} />
-                <ReadOnlyField label="User ID" value={userId != null ? String(userId) : ""} isDarkMode={isDarkMode} />
-                <ReadOnlyField label="First Name" value={profileDetails.firstName} isDarkMode={isDarkMode} />
-                <ReadOnlyField label="Last Name" value={profileDetails.lastName} isDarkMode={isDarkMode} />
-              </View>
-            </View>
-
-            <View style={hubStyles.section}>
-              <SectionTitle isDarkMode={isDarkMode}>Contact Information</SectionTitle>
-              <View style={[hubStyles.contactCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-                <View style={hubStyles.contactRow}>
-                  <View style={hubStyles.contactIconPrimary}>
-                    <MaterialIcon name="call" size={20} color={isDarkMode ? "#60a5fa" : HOME_M3.secondary} />
-                  </View>
-                  <View style={hubStyles.contactTextCol}>
-                    <Text style={[hubStyles.contactLabel, { color: secondaryText }]}>Primary Contact</Text>
-                    <Text style={[hubStyles.contactValue, { color: primaryText }]}>
-                      {primaryContact || "Not added"}
-                    </Text>
-                  </View>
-                </View>
-                {primaryContact && isValidContact(contactNumber || "") ? (
-                  <View style={hubStyles.verifiedBadge}>
-                    <MaterialIcon name="check-circle" size={12} color="#004A77" />
-                    <Text style={hubStyles.verifiedText}>VERIFIED</Text>
-                  </View>
-                ) : null}
-              </View>
-
-              {altContact ? (
-                <View
-                  style={[
-                    hubStyles.contactCard,
-                    hubStyles.contactCardAlt,
-                    { backgroundColor: cardBg, borderColor: cardBorder },
-                  ]}
+              <View style={hubStyles.sectionHeaderRow}>
+                <SectionTitle isDarkMode={isDarkMode}>Personal & Contact Info</SectionTitle>
+                <TouchableOpacity
+                  style={hubStyles.addNewBtn}
+                  onPress={() => {
+                    setEditIntent("profile");
+                    setSubView("edit");
+                  }}
                 >
-                  <View style={hubStyles.contactRow}>
-                    <View
-                      style={[
-                        hubStyles.contactIconAlt,
-                        isDarkMode && { backgroundColor: "#334155" },
-                      ]}
-                    >
-                      <MaterialIcon
-                        name="contact-phone"
-                        size={20}
-                        color={isDarkMode ? "#cbd5e1" : HOME_M3.outline}
-                      />
-                    </View>
-                    <View style={hubStyles.contactTextCol}>
-                      <Text style={[hubStyles.contactLabel, { color: secondaryText }]}>Alternative Contact</Text>
-                      <Text style={[hubStyles.contactValue, { color: primaryText }]}>{altContact}</Text>
-                    </View>
-                  </View>
-                </View>
-              ) : null}
+                  <Text style={[hubStyles.addNewText, isDarkMode && { color: "#38bdf8" }]}>
+                    Manage
+                  </Text>
+                  <MaterialIcon
+                    name="chevron-right"
+                    size={18}
+                    color={isDarkMode ? "#38bdf8" : "#0284c7"}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View
+                style={[
+                  hubStyles.infoCard,
+                  { backgroundColor: cardBg, borderColor: cardBorder },
+                ]}
+              >
+                <InfoRow
+                  icon="person-outline"
+                  label="Full Name"
+                  value={fullNameValue}
+                  isDarkMode={isDarkMode}
+                  primaryText={primaryText}
+                  secondaryText={secondaryText}
+                  dividerColor={cardBorder}
+                />
+                <InfoRow
+                  icon="mail-outline"
+                  label="Email Address"
+                  value={userEmail || "Not added"}
+                  isDarkMode={isDarkMode}
+                  primaryText={primaryText}
+                  secondaryText={secondaryText}
+                  dividerColor={cardBorder}
+                />
+                <InfoRow
+                  icon="call"
+                  label="Primary Phone"
+                  value={primaryContact || "Not added"}
+                  isDarkMode={isDarkMode}
+                  primaryText={primaryText}
+                  secondaryText={secondaryText}
+                  dividerColor={cardBorder}
+                  rightBadge={
+                    primaryContact && isValidContact(contactNumber || "") ? (
+                      <View style={hubStyles.verifiedBadge}>
+                        <MaterialIcon name="check-circle" size={12} color="#0369A1" />
+                        <Text style={hubStyles.verifiedText}>VERIFIED</Text>
+                      </View>
+                    ) : userRole === "CUSTOMER" ? (
+                      <TouchableOpacity
+                        style={hubStyles.addPhoneBadge}
+                        onPress={() => setMobileDialogOpen(true)}
+                      >
+                        <Text style={hubStyles.addPhoneBadgeText}>+ Add</Text>
+                      </TouchableOpacity>
+                    ) : null
+                  }
+                />
+                {altContact ? (
+                  <InfoRow
+                    icon="contact-phone"
+                    label="Alternate Phone"
+                    value={altContact}
+                    isDarkMode={isDarkMode}
+                    primaryText={primaryText}
+                    secondaryText={secondaryText}
+                    dividerColor={cardBorder}
+                  />
+                ) : null}
+                <InfoRow
+                  icon="badge"
+                  label="Account ID"
+                  value={userId != null ? `#${userId}` : "—"}
+                  isDarkMode={isDarkMode}
+                  primaryText={primaryText}
+                  secondaryText={secondaryText}
+                  dividerColor={cardBorder}
+                  isLast
+                />
+              </View>
             </View>
 
             {userRole === "CUSTOMER" ? (
@@ -622,52 +751,248 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       setSubView("edit");
                     }}
                   >
-                    <MaterialIcon name="add" size={18} color={isDarkMode ? "#60a5fa" : HOME_M3.secondary} />
-                    <Text style={[hubStyles.addNewText, isDarkMode && { color: "#60a5fa" }]}>Add New</Text>
+                    <MaterialIcon
+                      name="add-circle-outline"
+                      size={17}
+                      color={isDarkMode ? "#38bdf8" : "#0284c7"}
+                    />
+                    <Text style={[hubStyles.addNewText, isDarkMode && { color: "#38bdf8" }]}>
+                      Add New
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
                 {addresses.length === 0 ? (
-                  <View style={[hubStyles.emptyAddressCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-                    <Text style={[hubStyles.emptyAddressText, { color: secondaryText }]}>
-                      No saved addresses yet
-                    </Text>
-                  </View>
-                ) : (
-                  addresses.map((addr) => (
-                    <View key={addr.id} style={[hubStyles.addressCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-                      <View style={hubStyles.addressRow}>
-                        <View
-                          style={[
-                            hubStyles.addressIconWrap,
-                            isDarkMode && { backgroundColor: "#0f172a" },
-                          ]}
-                        >
-                          <MaterialIcon name="home" size={22} color={isDarkMode ? "#60a5fa" : HOME_M3.secondary} />
-                        </View>
-                        <View style={hubStyles.addressBody}>
-                          <View style={hubStyles.addressTitleRow}>
-                            <Text style={[hubStyles.addressTitle, { color: primaryText }]}>{addr.type}</Text>
-                            <TouchableOpacity onPress={() => setSubView("edit")} hitSlop={8}>
-                              <MaterialIcon
-                                name="more-vert"
-                                size={20}
-                                color={isDarkMode ? "#94a3b8" : HOME_M3.outline}
-                              />
-                            </TouchableOpacity>
-                          </View>
-                          <Text style={[hubStyles.addressText, { color: secondaryText }]}>{addr.street}</Text>
-                        </View>
-                      </View>
+                  <View
+                    style={[
+                      hubStyles.emptyAddressCard,
+                      { backgroundColor: cardBg, borderColor: cardBorder },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        hubStyles.emptyAddressIconWrap,
+                        { backgroundColor: isDarkMode ? "rgba(56, 189, 248, 0.12)" : "#E0F2FE" },
+                      ]}
+                    >
                       <MaterialIcon
-                        name="map"
-                        size={110}
-                        color={primaryText}
-                        style={hubStyles.addressWatermark}
+                        name="add-location-alt"
+                        size={24}
+                        color={isDarkMode ? "#38bdf8" : "#0284c7"}
                       />
                     </View>
-                  ))
+                    <Text style={[hubStyles.emptyAddressTitle, { color: primaryText }]}>
+                      No saved addresses yet
+                    </Text>
+                    <Text style={[hubStyles.emptyAddressText, { color: secondaryText }]}>
+                      Save your home or office address for faster checkout.
+                    </Text>
+                    <TouchableOpacity
+                      style={hubStyles.emptyAddressCta}
+                      onPress={() => {
+                        setEditIntent("addAddress");
+                        setSubView("edit");
+                      }}
+                      activeOpacity={0.85}
+                    >
+                      <MaterialIcon name="add" size={16} color="#FFFFFF" />
+                      <Text style={hubStyles.emptyAddressCtaText}>Add Address</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={hubStyles.addressList}>
+                    {addresses.map((addr) => (
+                      <TouchableOpacity
+                        key={addr.id}
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          setEditIntent("profile");
+                          setSubView("edit");
+                        }}
+                        style={[
+                          hubStyles.addressCard,
+                          { backgroundColor: cardBg, borderColor: cardBorder },
+                        ]}
+                      >
+                        <View style={hubStyles.addressRow}>
+                          <View
+                            style={[
+                              hubStyles.addressIconWrap,
+                              {
+                                backgroundColor: isDarkMode
+                                  ? "rgba(56, 189, 248, 0.12)"
+                                  : "#E0F2FE",
+                              },
+                            ]}
+                          >
+                            <MaterialIcon
+                              name={getAddressIconName(addr.type)}
+                              size={22}
+                              color={isDarkMode ? "#38bdf8" : "#0284c7"}
+                            />
+                          </View>
+                          <View style={hubStyles.addressBody}>
+                            <View style={hubStyles.addressTitleRow}>
+                              <Text style={[hubStyles.addressTitle, { color: primaryText }]}>
+                                {addr.type}
+                              </Text>
+                              <View
+                                style={[
+                                  hubStyles.addressEditPill,
+                                  {
+                                    backgroundColor: isDarkMode ? "#0f172a" : "#F1F5F9",
+                                  },
+                                ]}
+                              >
+                                <MaterialIcon
+                                  name="edit"
+                                  size={13}
+                                  color={isDarkMode ? "#94a3b8" : "#475569"}
+                                />
+                                <Text
+                                  style={[
+                                    hubStyles.addressEditPillText,
+                                    { color: isDarkMode ? "#cbd5e1" : "#475569" },
+                                  ]}
+                                >
+                                  Edit
+                                </Text>
+                              </View>
+                            </View>
+                            <Text
+                              style={[hubStyles.addressText, { color: secondaryText }]}
+                              numberOfLines={2}
+                            >
+                              {addr.street}
+                            </Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 )}
+              </View>
+            ) : null}
+
+            {(onNavigateToBookings || onOpenSettings || onContact) ? (
+              <View style={hubStyles.section}>
+                <SectionTitle isDarkMode={isDarkMode}>Quick Actions</SectionTitle>
+                <View
+                  style={[
+                    hubStyles.infoCard,
+                    { backgroundColor: cardBg, borderColor: cardBorder },
+                  ]}
+                >
+                  {onNavigateToBookings ? (
+                    <TouchableOpacity
+                      style={hubStyles.quickActionRow}
+                      onPress={onNavigateToBookings}
+                      activeOpacity={0.7}
+                    >
+                      <View
+                        style={[
+                          hubStyles.infoIconWrap,
+                          {
+                            backgroundColor: isDarkMode
+                              ? "rgba(56, 189, 248, 0.12)"
+                              : "#E0F2FE",
+                          },
+                        ]}
+                      >
+                        <MaterialIcon
+                          name="event-note"
+                          size={19}
+                          color={isDarkMode ? "#38bdf8" : "#0284c7"}
+                        />
+                      </View>
+                      <View style={hubStyles.infoTextCol}>
+                        <Text style={[hubStyles.quickActionTitle, { color: primaryText }]}>
+                          My Bookings
+                        </Text>
+                        <Text style={[hubStyles.infoLabel, { color: secondaryText }]}>
+                          View active, upcoming & past services
+                        </Text>
+                      </View>
+                      <MaterialIcon name="chevron-right" size={20} color={secondaryText} />
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {onNavigateToBookings && (onOpenSettings || onContact) ? (
+                    <View style={[hubStyles.infoDivider, { backgroundColor: cardBorder }]} />
+                  ) : null}
+
+                  {onOpenSettings ? (
+                    <TouchableOpacity
+                      style={hubStyles.quickActionRow}
+                      onPress={onOpenSettings}
+                      activeOpacity={0.7}
+                    >
+                      <View
+                        style={[
+                          hubStyles.infoIconWrap,
+                          {
+                            backgroundColor: isDarkMode
+                              ? "rgba(56, 189, 248, 0.12)"
+                              : "#E0F2FE",
+                          },
+                        ]}
+                      >
+                        <MaterialIcon
+                          name="settings"
+                          size={19}
+                          color={isDarkMode ? "#38bdf8" : "#0284c7"}
+                        />
+                      </View>
+                      <View style={hubStyles.infoTextCol}>
+                        <Text style={[hubStyles.quickActionTitle, { color: primaryText }]}>
+                          App Settings
+                        </Text>
+                        <Text style={[hubStyles.infoLabel, { color: secondaryText }]}>
+                          Theme, language & notifications
+                        </Text>
+                      </View>
+                      <MaterialIcon name="chevron-right" size={20} color={secondaryText} />
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {onOpenSettings && onContact ? (
+                    <View style={[hubStyles.infoDivider, { backgroundColor: cardBorder }]} />
+                  ) : null}
+
+                  {onContact ? (
+                    <TouchableOpacity
+                      style={hubStyles.quickActionRow}
+                      onPress={onContact}
+                      activeOpacity={0.7}
+                    >
+                      <View
+                        style={[
+                          hubStyles.infoIconWrap,
+                          {
+                            backgroundColor: isDarkMode
+                              ? "rgba(56, 189, 248, 0.12)"
+                              : "#E0F2FE",
+                          },
+                        ]}
+                      >
+                        <MaterialIcon
+                          name="support-agent"
+                          size={19}
+                          color={isDarkMode ? "#38bdf8" : "#0284c7"}
+                        />
+                      </View>
+                      <View style={hubStyles.infoTextCol}>
+                        <Text style={[hubStyles.quickActionTitle, { color: primaryText }]}>
+                          Help & Support
+                        </Text>
+                        <Text style={[hubStyles.infoLabel, { color: secondaryText }]}>
+                          Get assistance with your account or bookings
+                        </Text>
+                      </View>
+                      <MaterialIcon name="chevron-right" size={20} color={secondaryText} />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
               </View>
             ) : null}
           </View>
@@ -735,26 +1060,31 @@ const hubStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 10,
-    paddingBottom: 0,
-    backgroundColor: HOME_M3.primary,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    backgroundColor: "#0284c7",
   },
   navBackBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
     alignItems: "center",
     justifyContent: "center",
   },
   navTitle: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 17,
+    fontWeight: "700",
     color: HOME_M3.onPrimary,
-    letterSpacing: -0.1,
-    lineHeight: 18,
+    letterSpacing: -0.2,
   },
-  navSpacer: {
-    width: 28,
+  navActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   scroll: {
     flex: 1,
@@ -767,8 +1097,8 @@ const hubStyles = StyleSheet.create({
   hero: {
     width: "100%",
     alignSelf: "stretch",
-    paddingTop: 12,
-    paddingBottom: 32,
+    paddingTop: 10,
+    paddingBottom: 30,
     overflow: "hidden",
     position: "relative",
     zIndex: 2,
@@ -780,7 +1110,7 @@ const hubStyles = StyleSheet.create({
     width: 192,
     height: 192,
     borderRadius: 96,
-    backgroundColor: "rgba(51, 91, 175, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   heroDecorB: {
     position: "absolute",
@@ -789,78 +1119,110 @@ const hubStyles = StyleSheet.create({
     width: 256,
     height: 256,
     borderRadius: 128,
-    backgroundColor: "rgba(13, 43, 77, 0.08)",
+    backgroundColor: "rgba(13, 43, 77, 0.1)",
   },
   heroInner: {
     alignItems: "center",
     zIndex: 2,
     width: "100%",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   avatarOuter: {
-    marginBottom: 18,
+    marginBottom: 12,
+    position: "relative",
   },
   avatarBorder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: "rgba(255,255,255,0.2)",
-    padding: 4,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 3,
+    borderColor: "rgba(255, 255, 255, 0.45)",
+    padding: 3,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
   },
   avatarImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 56,
+    borderRadius: 44,
   },
   avatarFallback: {
     width: "100%",
     height: "100%",
-    borderRadius: 56,
-    backgroundColor: "#FFB3C6",
+    borderRadius: 44,
+    backgroundColor: "#E0F2FE",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
   },
   avatarInitials: {
     fontSize: 28,
     fontWeight: "800",
-    color: "#D42A5C",
+    color: "#0284C7",
     letterSpacing: -0.5,
   },
+  avatarEditBadge: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: HOME_M3.primary,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  roleBadgePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    marginBottom: 8,
+  },
+  roleBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
   displayName: {
-    fontSize: 26,
+    fontSize: 23,
     fontWeight: "800",
     color: HOME_M3.onPrimary,
     textAlign: "center",
-    letterSpacing: -0.5,
-    marginBottom: 4,
+    letterSpacing: -0.4,
+    marginBottom: 3,
     paddingHorizontal: 12,
   },
   handle: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.7)",
-    marginBottom: 20,
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.82)",
+    marginBottom: 18,
   },
   statsBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     width: "100%",
-    maxWidth: 340,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 14,
+    maxWidth: 350,
+    backgroundColor: "rgba(255, 255, 255, 0.14)",
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: "rgba(255, 255, 255, 0.24)",
     paddingHorizontal: 12,
-    paddingVertical: 14,
-    marginBottom: 20,
+    paddingVertical: 12,
+    marginBottom: 16,
   },
   statItem: {
     flex: 1,
@@ -868,76 +1230,75 @@ const hubStyles = StyleSheet.create({
     justifyContent: "center",
   },
   statValue: {
-    fontSize: 17,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "800",
     color: HOME_M3.onPrimary,
     textAlign: "center",
   },
   statLabel: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.65)",
-    marginTop: 4,
-    fontWeight: "500",
+    fontSize: 11,
+    color: "rgba(255, 255, 255, 0.8)",
+    marginTop: 2,
+    fontWeight: "600",
     textAlign: "center",
   },
   statDivider: {
     width: 1,
-    height: 32,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    height: 28,
+    backgroundColor: "rgba(255, 255, 255, 0.22)",
   },
   mobileHint: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 14,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    borderRadius: 999,
+    backgroundColor: "rgba(245, 158, 11, 0.24)",
     borderWidth: 1,
-    borderColor: "rgba(245, 158, 11, 0.3)",
+    borderColor: "rgba(254, 243, 199, 0.45)",
   },
   mobileHintText: {
-    fontSize: 13,
-    color: "#f59e0b",
+    fontSize: 12,
+    color: "#FEF3C7",
     fontWeight: "600",
   },
   editBtnWrap: {
     width: "100%",
     alignItems: "center",
-    marginTop: 4,
-    marginBottom: 4,
+    marginTop: 2,
+    marginBottom: 2,
     zIndex: 10,
-    elevation: 10,
   },
   editBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: HOME_M3.onPrimary,
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    minHeight: 44,
-    borderRadius: 12,
-    shadowColor: "#000",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    minHeight: 40,
+    borderRadius: 999,
+    shadowColor: "#0284C7",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 5,
   },
   editBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: HOME_M3.primary,
-    letterSpacing: 0.5,
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0284C7",
+    letterSpacing: 0.2,
   },
   contentSheet: {
-    marginTop: -12,
-    backgroundColor: HOME_M3.surfaceContainerLowest,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingTop: 24,
+    marginTop: -16,
+    backgroundColor: "#F8FAFC",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 22,
     paddingHorizontal: 16,
     paddingBottom: 16,
     width: "100%",
@@ -946,114 +1307,85 @@ const hubStyles = StyleSheet.create({
   },
   contentInner: {
     width: "100%",
-    gap: 28,
+    gap: 24,
   },
   section: {
-    gap: 16,
+    gap: 12,
   },
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 2,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: HOME_M3.outline,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#64748B",
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
-  fieldGrid: {
-    gap: 16,
-  },
-  fieldWrap: {
-    gap: 8,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: HOME_M3.onSurfaceVariant,
-    paddingHorizontal: 4,
-  },
-  fieldBox: {
-    backgroundColor: HOME_M3.surfaceContainerLow,
-    borderRadius: 12,
+  infoCard: {
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(196, 198, 207, 0.3)",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    overflow: "hidden",
   },
-  fieldValue: {
-    fontSize: 14,
-    color: HOME_M3.onSurface,
-    lineHeight: 20,
-  },
-  contactCard: {
-    backgroundColor: HOME_M3.surfaceContainerLow,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(196, 198, 207, 0.3)",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+  infoRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     gap: 12,
   },
-  contactCardAlt: {
-    marginTop: 12,
-  },
-  contactRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    flex: 1,
-  },
-  contactIconPrimary: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(130, 166, 255, 0.2)",
+  infoIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
   },
-  contactIconAlt: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#e0e3e5",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  contactTextCol: {
+  infoTextCol: {
     flex: 1,
     minWidth: 0,
   },
-  contactLabel: {
-    fontSize: 12,
+  infoLabel: {
+    fontSize: 11,
     fontWeight: "500",
-    color: HOME_M3.onSurfaceVariant,
     marginBottom: 2,
   },
-  contactValue: {
+  infoValue: {
     fontSize: 14,
-    color: HOME_M3.onSurface,
-    fontWeight: "400",
+    fontWeight: "600",
+  },
+  infoDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: 64,
   },
   verifiedBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "#D1E9FF",
-    paddingHorizontal: 10,
+    backgroundColor: "#E0F2FE",
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 999,
   },
   verifiedText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#004A77",
+    color: "#0369A1",
     letterSpacing: 0.3,
+  },
+  addPhoneBadge: {
+    backgroundColor: "#0284C7",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  addPhoneBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   addNewBtn: {
     flexDirection: "row",
@@ -1061,38 +1393,32 @@ const hubStyles = StyleSheet.create({
     gap: 4,
   },
   addNewText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: HOME_M3.secondary,
-    letterSpacing: 0.3,
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0284C7",
+  },
+  addressList: {
+    gap: 10,
   },
   addressCard: {
-    backgroundColor: HOME_M3.surfaceContainerLow,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(196, 198, 207, 0.3)",
-    padding: 20,
+    padding: 14,
     overflow: "hidden",
     position: "relative",
   },
   addressRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 16,
+    gap: 12,
     zIndex: 2,
   },
   addressIconWrap: {
-    width: 48,
-    height: 48,
+    width: 42,
+    height: 42,
     borderRadius: 12,
-    backgroundColor: HOME_M3.surfaceContainerLowest,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 1,
   },
   addressBody: {
     flex: 1,
@@ -1105,32 +1431,75 @@ const hubStyles = StyleSheet.create({
     marginBottom: 4,
   },
   addressTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: "700",
-    color: HOME_M3.onSurface,
+  },
+  addressEditPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  addressEditPillText: {
+    fontSize: 11,
+    fontWeight: "600",
   },
   addressText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: HOME_M3.onSurfaceVariant,
-  },
-  addressWatermark: {
-    position: "absolute",
-    right: -8,
-    bottom: -16,
-    opacity: 0.03,
+    fontSize: 13,
+    lineHeight: 19,
   },
   emptyAddressCard: {
-    backgroundColor: HOME_M3.surfaceContainerLow,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(196, 198, 207, 0.3)",
-    padding: 20,
+    padding: 22,
     alignItems: "center",
+    gap: 6,
+  },
+  emptyAddressIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  emptyAddressTitle: {
+    fontSize: 15,
+    fontWeight: "700",
   },
   emptyAddressText: {
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  emptyAddressCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#0284C7",
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 999,
+  },
+  emptyAddressCtaText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  quickActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 12,
+  },
+  quickActionTitle: {
     fontSize: 14,
-    color: HOME_M3.onSurfaceVariant,
+    fontWeight: "600",
+    marginBottom: 2,
   },
 });
 
