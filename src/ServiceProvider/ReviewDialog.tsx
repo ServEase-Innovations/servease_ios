@@ -13,7 +13,8 @@ import {
 import { Text } from "../theme/BrandTypography";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import StarIcon from "react-native-vector-icons/FontAwesome";
-import { BRAND } from "../theme/brandColors";
+import LinearGradient from "react-native-linear-gradient";
+import { BRAND, HOME_HERO_GRADIENT, HOME_M3 } from "../theme/brandColors";
 import {
   fetchProviderReviews,
   type ProviderRatingSummary,
@@ -202,19 +203,20 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.sheet}>
-          <View style={styles.headerAccent} />
-          <View style={styles.header}>
-            <View style={styles.headerIcon}>
-              <MaterialIcon name="star-rate" size={22} color={BRAND.accent} />
+          <LinearGradient colors={[...HOME_HERO_GRADIENT]} style={styles.headerGradient}>
+            <View style={styles.header}>
+              <View style={styles.headerIcon}>
+                <MaterialIcon name="star-rate" size={22} color={HOME_M3.secondary} />
+              </View>
+              <View style={styles.headerTextCol}>
+                <Text style={styles.headerTitle}>Customer reviews</Text>
+                <Text style={styles.headerSubtitle}>Ratings and feedback from your clients</Text>
+              </View>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={8}>
+                <MaterialIcon name="close" size={22} color="#ffffff" />
+              </TouchableOpacity>
             </View>
-            <View style={styles.headerTextCol}>
-              <Text style={styles.headerTitle}>Customer reviews</Text>
-              <Text style={styles.headerSubtitle}>Ratings and feedback from your clients</Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={8}>
-              <MaterialIcon name="close" size={22} color={BRAND.textMuted} />
-            </TouchableOpacity>
-          </View>
+          </LinearGradient>
 
           {loading && !refreshing && reviews.length === 0 ? (
             <View style={styles.centered}>
@@ -239,8 +241,7 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
               }
             >
               {providerRating ? (
-                <View style={styles.heroCard}>
-                  <View style={styles.heroAccent} />
+                <View style={styles.summaryCard}>
                   <View style={styles.heroRow}>
                     <View style={styles.heroLeft}>
                       <Text style={styles.heroScore}>{averageRating.toFixed(1)}</Text>
@@ -256,27 +257,26 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
                       </View>
                     </View>
                   </View>
-                </View>
-              ) : null}
-
-              {providerRating && totalReviews > 0 ? (
-                <View style={styles.distCard}>
-                  <Text style={styles.sectionTitle}>Rating breakdown</Text>
-                  {[5, 4, 3, 2, 1].map((stars) => {
-                    const count =
-                      providerRating.distribution[String(stars) as "1" | "2" | "3" | "4" | "5"] ?? 0;
-                    const pct = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
-                    return (
-                      <View key={stars} style={styles.distRow}>
-                        <Text style={styles.distLabel}>{stars}</Text>
-                        <MaterialIcon name="star" size={12} color="#f59e0b" />
-                        <View style={styles.distTrack}>
-                          <View style={[styles.distFill, { width: `${pct}%` }]} />
-                        </View>
-                        <Text style={styles.distCount}>{count}</Text>
-                      </View>
-                    );
-                  })}
+                  {totalReviews > 0 ? (
+                    <View style={styles.distSection}>
+                      <Text style={styles.sectionTitle}>Rating breakdown</Text>
+                      {[5, 4, 3, 2, 1].map((stars) => {
+                        const count =
+                          providerRating.distribution[String(stars) as "1" | "2" | "3" | "4" | "5"] ?? 0;
+                        const pct = (count / totalReviews) * 100;
+                        return (
+                          <View key={stars} style={styles.distRow}>
+                            <Text style={styles.distLabel}>{stars}</Text>
+                            <MaterialIcon name="star" size={12} color="#f59e0b" />
+                            <View style={styles.distTrack}>
+                              <View style={[styles.distFill, { width: `${pct}%` }]} />
+                            </View>
+                            <Text style={styles.distCount}>{count}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -332,36 +332,33 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: BRAND.canvas },
   sheet: { flex: 1, backgroundColor: BRAND.canvas },
-  headerAccent: { height: 3, backgroundColor: BRAND.accent },
+  headerGradient: { paddingBottom: 4 },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: BRAND.accentSoft,
-    borderBottomWidth: 1,
-    borderBottomColor: BRAND.line,
   },
   headerIcon: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: BRAND.surface,
+    backgroundColor: "rgba(255,255,255,0.95)",
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTextCol: { flex: 1, marginLeft: 12, marginRight: 8 },
-  headerTitle: { fontSize: 18, fontWeight: "700", color: BRAND.text },
-  headerSubtitle: { fontSize: 12, color: BRAND.textMuted, marginTop: 2, fontWeight: "500" },
+  headerTitle: { fontSize: 18, fontWeight: "800", color: HOME_M3.onPrimary, letterSpacing: -0.2 },
+  headerSubtitle: { fontSize: 12, color: HOME_M3.onPrimaryContainer, marginTop: 2, fontWeight: "500" },
   closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: BRAND.surface,
+    backgroundColor: "rgba(255,255,255,0.15)",
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -369,20 +366,26 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 16, paddingBottom: 32 },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 24 },
   centeredText: { fontSize: 14, color: BRAND.textMuted },
-  heroCard: {
+  summaryCard: {
     backgroundColor: BRAND.surface,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: BRAND.line,
-    marginBottom: 12,
+    marginBottom: 16,
     overflow: "hidden",
+    paddingBottom: 16,
   },
-  heroAccent: { height: 4, backgroundColor: BRAND.accent },
   heroRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     padding: 18,
+  },
+  distSection: {
+    marginHorizontal: 18,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: BRAND.line,
   },
   heroLeft: { alignItems: "flex-start" },
   heroScore: { fontSize: 42, fontWeight: "800", color: BRAND.text, letterSpacing: -1 },
@@ -399,14 +402,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   gradeText: { fontSize: 20, fontWeight: "800", color: "#fff" },
-  distCard: {
-    backgroundColor: BRAND.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BRAND.line,
-    padding: 16,
-    marginBottom: 12,
-  },
   sectionTitle: {
     fontSize: 13,
     fontWeight: "700",

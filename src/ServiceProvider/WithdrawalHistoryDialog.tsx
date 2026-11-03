@@ -13,7 +13,8 @@ import {
 } from "react-native";
 import { Text } from "../theme/BrandTypography";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
-import { BRAND } from "../theme/brandColors";
+import LinearGradient from "react-native-linear-gradient";
+import { BRAND, HOME_HERO_GRADIENT, HOME_M3 } from "../theme/brandColors";
 import {
   fetchWithdrawalHistory as getWithdrawalHistory,
   type LedgerEntry,
@@ -240,19 +241,20 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.sheet}>
-          <View style={styles.headerAccent} />
-          <View style={styles.header}>
-            <View style={styles.headerIcon}>
-              <MaterialIcon name="receipt-long" size={22} color={BRAND.accent} />
+          <LinearGradient colors={[...HOME_HERO_GRADIENT]} style={styles.headerGradient}>
+            <View style={styles.header}>
+              <View style={styles.headerIcon}>
+                <MaterialIcon name="receipt-long" size={22} color={HOME_M3.secondary} />
+              </View>
+              <View style={styles.headerTextCol}>
+                <Text style={styles.headerTitle}>Withdrawal History</Text>
+                <Text style={styles.headerSubtitle}>Earnings, withdrawals & payout status</Text>
+              </View>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={8}>
+                <MaterialIcon name="close" size={22} color="#ffffff" />
+              </TouchableOpacity>
             </View>
-            <View style={styles.headerTextCol}>
-              <Text style={styles.headerTitle}>Withdrawal History</Text>
-              <Text style={styles.headerSubtitle}>Earnings, withdrawals & payout status</Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={8}>
-              <MaterialIcon name="close" size={22} color={BRAND.textMuted} />
-            </TouchableOpacity>
-          </View>
+          </LinearGradient>
 
           {loading && !refreshing ? (
             <View style={styles.loadingWrap}>
@@ -285,11 +287,14 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
                   />
                 }
               >
-                {/* Balance hero */}
-                <View style={styles.heroCard}>
-                  <View style={styles.heroAccent} />
+                <View style={styles.summaryCard}>
                   <View style={styles.heroInner}>
-                    <Text style={styles.heroLabel}>Available to withdraw</Text>
+                    <View style={styles.heroLabelRow}>
+                      <View style={styles.heroIcon}>
+                        <MaterialIcon name="account-balance-wallet" size={18} color={BRAND.accent} />
+                      </View>
+                      <Text style={styles.heroLabel}>Available to withdraw</Text>
+                    </View>
                     <Text
                       style={[
                         styles.heroValue,
@@ -299,24 +304,25 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
                       {formatInr(historyData.summary.available_to_withdraw, true)}
                     </Text>
                   </View>
-                </View>
 
-                {/* Summary stats */}
-                <View style={styles.statsRow}>
-                  <View style={styles.statCard}>
-                    <View style={[styles.statBar, { backgroundColor: BRAND.accent }]} />
+                  <View style={styles.statsRow}>
                     <View style={styles.statInner}>
-                      <MaterialIcon name="trending-up" size={18} color={BRAND.accent} />
-                      <Text style={styles.statLabel}>Total earned</Text>
-                      <Text style={styles.statValue}>{formatInr(historyData.summary.total_earned, true)}</Text>
+                      <View style={styles.statLabelRow}>
+                        <MaterialIcon name="trending-up" size={16} color={BRAND.accent} />
+                        <Text style={styles.statLabel}>Total earned</Text>
+                      </View>
+                      <Text style={styles.statValue}>
+                        {formatInr(historyData.summary.total_earned, true)}
+                      </Text>
                     </View>
-                  </View>
-                  <View style={styles.statCard}>
-                    <View style={[styles.statBar, { backgroundColor: "#d97706" }]} />
-                    <View style={styles.statInner}>
-                      <MaterialIcon name="south-west" size={18} color="#d97706" />
-                      <Text style={styles.statLabel}>Withdrawn</Text>
-                      <Text style={styles.statValue}>{formatInr(historyData.summary.total_withdrawn, true)}</Text>
+                    <View style={[styles.statInner, styles.secondStatInner]}>
+                      <View style={styles.statLabelRow}>
+                        <MaterialIcon name="south-west" size={16} color="#d97706" />
+                        <Text style={styles.statLabel}>Withdrawn</Text>
+                      </View>
+                      <Text style={styles.statValue}>
+                        {formatInr(historyData.summary.total_withdrawn, true)}
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -415,26 +421,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BRAND.canvas,
   },
-  headerAccent: {
-    height: 3,
-    backgroundColor: BRAND.accent,
+  headerGradient: {
+    paddingBottom: 4,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: BRAND.accentSoft,
-    borderBottomWidth: 1,
-    borderBottomColor: BRAND.line,
   },
   headerIcon: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: BRAND.surface,
+    backgroundColor: "rgba(255,255,255,0.95)",
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -446,13 +448,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: "700",
-    color: BRAND.text,
+    fontWeight: "800",
+    color: HOME_M3.onPrimary,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: BRAND.textMuted,
+    color: HOME_M3.onPrimaryContainer,
     marginTop: 2,
     fontWeight: "500",
   },
@@ -460,9 +462,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: BRAND.surface,
+    backgroundColor: "rgba(255,255,255,0.15)",
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -522,26 +524,35 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     gap: 14,
   },
-  heroCard: {
+  summaryCard: {
     backgroundColor: BRAND.surface,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: BRAND.line,
     overflow: "hidden",
   },
-  heroAccent: {
-    height: 3,
-    backgroundColor: BRAND.accent,
-  },
   heroInner: {
-    padding: 16,
+    padding: 18,
     backgroundColor: BRAND.accentSoft,
+  },
+  heroLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  heroIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: BRAND.surface,
   },
   heroLabel: {
     fontSize: 12,
     fontWeight: "600",
     color: BRAND.accent,
-    marginBottom: 4,
   },
   heroValue: {
     fontSize: 30,
@@ -554,23 +565,21 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: "row",
-    gap: 10,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: BRAND.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: BRAND.line,
-    overflow: "hidden",
-  },
-  statBar: {
-    height: 3,
-    width: "100%",
+    paddingVertical: 14,
   },
   statInner: {
-    padding: 12,
-    gap: 4,
+    flex: 1,
+    paddingHorizontal: 14,
+    gap: 6,
+  },
+  secondStatInner: {
+    borderLeftWidth: 1,
+    borderLeftColor: BRAND.line,
+  },
+  statLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   statLabel: {
     fontSize: 11,

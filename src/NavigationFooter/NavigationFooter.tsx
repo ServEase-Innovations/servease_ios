@@ -481,12 +481,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           onPress: () => onNavigateToPage(SP_EARNINGS),
         },
         {
-          key: WALLET,
-          label: t("navigation.wallet") || "Wallet",
-          iconName: "account-balance-wallet",
-          onPress: () => onNavigateToPage(WALLET),
-        },
-        {
           key: PROFILE,
           label: t("navigation.profile"),
           isAccount: true,

@@ -32,6 +32,7 @@ import HomeHeroChrome from '../HomePage/HomeHeroChrome';
 import { OtpVerificationDialog } from './OtpVerificationDialog';
 import WithdrawalDialog from './WithdrawalDialog';
 import { WithdrawalHistoryDialog } from './WithdrawalHistoryDialog';
+import ProviderLeaveDialog from './ProviderLeaveDialog';
 import TrackAddress from './TrackAddress';
 
 // Types for API response
@@ -220,6 +221,7 @@ export default function Dashboard({ onBackToHome, onLogoPress, closeDropdowns = 
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [withdrawalHistoryDialogOpen, setWithdrawalHistoryDialogOpen] = useState(false);
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   
   const [trackAddressDialogOpen, setTrackAddressDialogOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState("");
@@ -583,17 +585,30 @@ export default function Dashboard({ onBackToHome, onLogoPress, closeDropdowns = 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <LinearGradient colors={[...HOME_HERO_GRADIENT]} style={styles.heroGradient}>
+        <LinearGradient
+          colors={[...HOME_HERO_GRADIENT]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.heroGradient}
+        >
           <HomeHeroChrome closeDropdowns={closeDropdowns} onLogoPress={onLogoPress} />
 
           <Animated.View
             style={[
-              styles.heroBody,
+              styles.heroGreetingCard,
               { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
             ]}
           >
-            <Text style={styles.heroEyebrow}>Namaste,</Text>
-            <Text style={styles.heroPageTitle}>{providerDisplayName || "Guest"}</Text>
+            <View style={styles.heroAvatar}>
+              <MaterialIcon name="person" size={28} color={BRAND.accentDark} />
+            </View>
+            <View style={styles.heroGreetingText}>
+              <Text style={styles.heroEyebrow}>Namaste,</Text>
+              <Text style={styles.heroPageTitle} numberOfLines={2}>
+                {providerDisplayName || "Guest"}
+              </Text>
+              <Text style={styles.heroSubtitle}>Your service dashboard</Text>
+            </View>
           </Animated.View>
         </LinearGradient>
 
@@ -655,7 +670,7 @@ export default function Dashboard({ onBackToHome, onLogoPress, closeDropdowns = 
                 iconBg: "#e0e7ff",
                 icon: <MaterialIcon name="event-busy" size={20} color="#4f46e5" />,
                 label: "Apply leave",
-                onPress: () => Alert.alert("Apply leave", "Use the web dashboard to apply for leave."),
+                onPress: () => setLeaveDialogOpen(true),
               },
             ].map((action, index, list) => (
               <QuickActionRow
@@ -714,6 +729,11 @@ export default function Dashboard({ onBackToHome, onLogoPress, closeDropdowns = 
         onWithdrawalSuccess={handleWithdrawalSuccess}
       />
 
+      <ProviderLeaveDialog
+        visible={leaveDialogOpen}
+        onClose={() => setLeaveDialogOpen(false)}
+      />
+
       <Modal
         visible={trackAddressDialogOpen}
         animationType="slide"
@@ -747,22 +767,44 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
     overflow: "visible",
   },
-  heroBody: {
-    paddingHorizontal: 20,
-    paddingBottom: 4,
+  heroGreetingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  heroAvatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.94)",
+    marginRight: 14,
+  },
+  heroGreetingText: {
+    flex: 1,
   },
   heroEyebrow: {
     color: HOME_M3.onPrimaryContainer,
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 4,
+    fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+    marginBottom: 3,
   },
   heroPageTitle: {
     color: HOME_M3.onPrimary,
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: "800",
-    lineHeight: 38,
-    letterSpacing: -0.6,
+    lineHeight: 32,
+    letterSpacing: -0.4,
+  },
+  heroSubtitle: {
+    color: "rgba(255,255,255,0.82)",
+    fontSize: 13,
+    fontWeight: "500",
+    marginTop: 4,
   },
   contentSheet: {
     backgroundColor: HOME_M3.surface,
