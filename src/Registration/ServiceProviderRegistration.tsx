@@ -1973,11 +1973,22 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
       
       const toNull = (value: any) => (value === "" ? null : value);
 
-      const registrationEmail = (
+      // Create demo email if user didn't provide one
+      let registrationEmail = (
         isAuth0Authenticated && auth0LoginEmail
           ? auth0LoginEmail
           : (formData.emailId || "").trim().toLowerCase()
       );
+      
+      // Generate demo email for Auth0 if no email provided
+      if (!registrationEmail) {
+        const firstName = formData.firstName.trim().toLowerCase().replace(/\s+/g, '');
+        const lastName = formData.lastName.trim().toLowerCase().replace(/\s+/g, '');
+        const phone = formData.mobileNo.trim();
+        registrationEmail = `${firstName}.${lastName}.${phone}@gmail.com`;
+        console.log("Generated demo email for Auth0:", registrationEmail);
+      }
+      
       const resolvedKycUrl = uploadedKycUrl || null;
 
       const payload = {

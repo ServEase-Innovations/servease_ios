@@ -940,13 +940,23 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       const primaryRole = selectedServices.length > 0 ? selectedServices[0] : "";
       const age = formData.dob ? moment().diff(moment(formData.dob, "YYYY-MM-DD"), "years") : 0;
       
+      // Generate demo email for Auth0 if no email provided
+      let finalEmail = formData.emailId.trim();
+      if (!finalEmail) {
+        const firstName = formData.firstName.trim().toLowerCase().replace(/\s+/g, '');
+        const lastName = formData.lastName.trim().toLowerCase().replace(/\s+/g, '');
+        const phone = formData.mobileNo.trim();
+        finalEmail = `${firstName}.${lastName}.${phone}@gmail.com`;
+        console.log("Generated demo email for service provider:", finalEmail);
+      }
+      
       const payload = {
         firstName: formData.firstName,
         middleName: formData.middleName,
         lastName: formData.lastName,
         mobileNo: parseInt(formData.mobileNo) || 0,
         alternateNo: formData.AlternateNumber ? parseInt(formData.AlternateNumber) : 0,
-        emailId: formData.emailId,
+        emailId: finalEmail,
         gender: formData.gender,
         buildingName: formData.buildingName,
         locality: formData.locality,
@@ -968,7 +978,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         timeslot: formData.timeslot,
         expectedSalary: 0,
         experience: parseInt(formData.experience) || 0,
-        username: formData.emailId,
+        username: finalEmail,
         password: formData.password,
         agentReferralId: formData.agentReferralId || "",
         privacy: formData.privacy,
@@ -1007,7 +1017,17 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       await providerInstance.post("/api/service-providers/serviceprovider/add", payload, { headers: { "Content-Type": "application/json" } });
       showSnackbar("Registration successful!", "success");
       
-      const authPayload = { email: formData.emailId, password: formData.password, name: `${formData.firstName} ${formData.lastName}` };
+      // Generate demo email for Auth0 if no email provided
+      let authEmail = formData.emailId.trim();
+      if (!authEmail) {
+        const firstName = formData.firstName.trim().toLowerCase().replace(/\s+/g, '');
+        const lastName = formData.lastName.trim().toLowerCase().replace(/\s+/g, '');
+        const phone = formData.mobileNo.trim();
+        authEmail = `${firstName}.${lastName}.${phone}@gmail.com`;
+        console.log("Generated demo email for Auth0:", authEmail);
+      }
+      
+      const authPayload = { email: authEmail, password: formData.password, name: `${formData.firstName} ${formData.lastName}` };
       axios.post('https://utils-ndt3.onrender.com/authO/create-autho-user', authPayload).catch(err => console.error("AuthO error:", err));
       
       setTimeout(() => {
