@@ -1978,15 +1978,6 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
           ? auth0LoginEmail
           : (formData.emailId || "").trim().toLowerCase()
       );
-      if (!registrationEmail) {
-        setIsSubmitting(false);
-        showSnackbar(
-          "Email is required. Sign in with Auth0 first or enter the same email you will use to log in.",
-          "error"
-        );
-        return;
-      }
-
       const resolvedKycUrl = uploadedKycUrl || null;
 
       const payload = {

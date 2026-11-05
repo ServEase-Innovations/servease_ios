@@ -361,11 +361,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     switch(activeStep) {
       case 0:
         isComplete = !!formData.firstName.trim() && !!formData.lastName.trim() && !!formData.gender &&
-                     !!formData.emailId.trim() && !!formData.password.trim() && !!formData.confirmPassword.trim() &&
+                     !!formData.password.trim() && !!formData.confirmPassword.trim() &&
                      !!formData.mobileNo.trim() && !!formData.dob.trim() &&
                      !errors.firstName && !errors.lastName && !errors.gender && !errors.emailId &&
                      !errors.password && !errors.confirmPassword && !errors.mobileNo && !errors.dob &&
-                     validationResults.email.isAvailable !== false && validationResults.mobile.isAvailable !== false;
+                     (formData.emailId.trim() ? validationResults.email.isAvailable !== false : true) && 
+                     validationResults.mobile.isAvailable !== false;
         break;
       case 1:
         isComplete = !!formData.permanentAddress.apartment?.trim() && !!formData.permanentAddress.street?.trim() &&
@@ -736,7 +737,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
     if (name === "emailId") {
       const trimmed = value.trim();
-      if (!trimmed) { setErrors(prev => ({ ...prev, emailId: "Email is required" })); resetValidation('email'); }
+      if (!trimmed) { setErrors(prev => ({ ...prev, emailId: "" })); resetValidation('email'); }
       else if (!emailIdRegex.test(trimmed)) { setErrors(prev => ({ ...prev, emailId: "Invalid email" })); resetValidation('email'); }
       else { setErrors(prev => ({ ...prev, emailId: "" })); debouncedEmailValidation(trimmed); }
     }
@@ -830,10 +831,11 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!formData.lastName.trim()) { tempErrors.lastName = "Last name required"; isValid = false; }
       else if (!nameRegex.test(formData.lastName)) { tempErrors.lastName = "Only letters"; isValid = false; }
       if (!formData.gender) { tempErrors.gender = "Gender required"; isValid = false; }
-      if (!formData.emailId.trim()) { tempErrors.emailId = "Email required"; isValid = false; }
-      else if (!emailIdRegex.test(formData.emailId)) { tempErrors.emailId = "Invalid email"; isValid = false; }
-      else if (validationResults.email.error) { tempErrors.emailId = validationResults.email.error; isValid = false; }
-      else if (!validationResults.email.isAvailable) { tempErrors.emailId = "Email already registered"; isValid = false; }
+      if (formData.emailId.trim()) {
+        if (!emailIdRegex.test(formData.emailId)) { tempErrors.emailId = "Invalid email"; isValid = false; }
+        else if (validationResults.email.error) { tempErrors.emailId = validationResults.email.error; isValid = false; }
+        else if (!validationResults.email.isAvailable) { tempErrors.emailId = "Email already registered"; isValid = false; }
+      }
       if (!formData.password.trim()) { tempErrors.password = "Password required"; isValid = false; }
       else if (!strongPasswordRegex.test(formData.password)) { tempErrors.password = "Password must be at least 8 characters with uppercase, lowercase, number, special char"; isValid = false; }
       if (!formData.confirmPassword.trim()) { tempErrors.confirmPassword = "Confirm password"; isValid = false; }
