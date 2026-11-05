@@ -26,6 +26,7 @@ import { useAppUser } from '../context/AppUserContext';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { HOME_HERO_GRADIENT, HOME_M3, BRAND } from "../theme/brandColors";
+import { BrandButton } from "../design-system/BrandButton";
 
 
 dayjs.extend(customParseFormat);
@@ -1355,7 +1356,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                           styles.segmentSelected,
                           {
                             backgroundColor: isDarkMode ? colors.card : "#ffffff",
-                            shadowColor: BRAND.bookingNavy,
+                            shadowColor: BRAND.accent,
                           },
                         ],
                       ]}
@@ -1497,7 +1498,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             style={[
               styles.actions,
               {
-                borderTopColor: BRAND.bookingNavy,
+                borderTopColor: colors.border,
                 backgroundColor: isDarkMode ? colors.card : "#f8fafc",
                 paddingBottom: Math.max(insets.bottom, 14),
               },
@@ -1512,14 +1513,29 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.confirmButton, { backgroundColor: BRAND.bookingNavy }, isConfirmDisabled() && [styles.disabledButton, { backgroundColor: colors.disabled }]]}
+            <BrandButton
               onPress={handleAccept}
               disabled={isConfirmDisabled()}
+              style={styles.confirmButton}
             >
-              <Text style={[styles.confirmText, { color: '#fff', fontSize: fontSizes.button }]}>Confirm Booking</Text>
-              <Icon name="arrow-forward" size={18} color="#fff" style={styles.confirmArrow} />
-            </TouchableOpacity>
+              <View style={styles.confirmButtonContent}>
+                <Text style={[
+                  styles.confirmText,
+                  {
+                    color: isConfirmDisabled() ? colors.textTertiary : '#fff',
+                    fontSize: fontSizes.button,
+                  },
+                ]}>
+                  Confirm Booking
+                </Text>
+                <Icon
+                  name="arrow-forward"
+                  size={18}
+                  color={isConfirmDisabled() ? colors.textTertiary : '#fff'}
+                  style={styles.confirmArrow}
+                />
+              </View>
+            </BrandButton>
           </View>
         </Animated.View>
       </View>
@@ -1709,7 +1725,11 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 14,
     alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmButtonContent: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "center",
     gap: 6,
   },

@@ -1164,18 +1164,24 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   selectedDay: {
-    backgroundColor: BRAND.bookingNavy,
+    backgroundColor: BRAND.accentSoft,
+    borderWidth: 1,
+    borderColor: BRAND.accent,
   },
   inRangeDay: {
     backgroundColor: BRAND.accentSoft,
   },
   rangeStartDay: {
-    backgroundColor: BRAND.bookingNavy,
+    backgroundColor: BRAND.accentSoft,
+    borderWidth: 1,
+    borderColor: BRAND.accent,
     borderTopLeftRadius: 30,
     borderBottomLeftRadius: 30,
   },
   rangeEndDay: {
-    backgroundColor: BRAND.bookingNavy,
+    backgroundColor: BRAND.accentSoft,
+    borderWidth: 1,
+    borderColor: BRAND.accent,
     borderTopRightRadius: 30,
     borderBottomRightRadius: 30,
   },
@@ -1185,8 +1191,8 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   selectedDayText: {
-    color: "#fff",
-    fontWeight: "600",
+    color: BRAND.accentDark,
+    fontWeight: "700",
   },
   divider: {
     height: 1,
@@ -1279,8 +1285,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   activeTimeSlot: {
-    backgroundColor: BRAND.bookingNavy,
-    borderColor: BRAND.bookingNavy,
+    backgroundColor: BRAND.accentSoft,
+    borderColor: BRAND.accent,
   },
   disabledTimeSlot: {
     backgroundColor: "#F8FAFC",
@@ -1293,8 +1299,8 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   activeTimeSlotText: {
-    color: "#fff",
-    fontWeight: "600",
+    color: BRAND.accentDark,
+    fontWeight: "700",
   },
   disabledTimeSlotText: {
     color: "#94A3B8",

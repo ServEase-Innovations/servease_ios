@@ -33,14 +33,17 @@ export const useFieldValidation = () => {
   });
 
   const validateField = useCallback(
-    async (fieldType: "email" | "mobile" | "alternate", value: string) => {
+    async (
+      fieldType: "email" | "mobile" | "alternate",
+      value: string
+    ): Promise<boolean | null> => {
       const trimmed = value?.trim();
       if (!trimmed) {
         setValidationResults((prev) => ({
           ...prev,
           [fieldType]: emptyField(),
         }));
-        return;
+        return null;
       }
 
       setValidationResults((prev) => ({
@@ -64,7 +67,7 @@ export const useFieldValidation = () => {
               error: taken ? t("registration.basicInformation.emailTaken") : "",
             },
           }));
-          return;
+          return !taken;
         }
 
         const { data } = await providerInstance.post("/api/service-providers/check-mobile", {
@@ -81,6 +84,7 @@ export const useFieldValidation = () => {
             error: taken ? t("registration.basicInformation.mobileTaken") : "",
           },
         }));
+        return !taken;
       } catch (error: unknown) {
         console.error(`Error validating ${fieldType}:`, error);
         setValidationResults((prev) => ({
@@ -94,6 +98,7 @@ export const useFieldValidation = () => {
               "Could not verify. Try again.",
           },
         }));
+        return null;
       }
     },
     [t]

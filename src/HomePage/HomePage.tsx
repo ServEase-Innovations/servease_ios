@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -36,8 +36,9 @@ import {
 import HomeHeroChrome from "./HomeHeroChrome";
 import { useTranslation } from "react-i18next";
 import FirstBookingOffer from "./FirstBookingOffer";
-import ServiceSelectionDialog from "./ServiceSelectionDialog";
+import { hasMeaningfulDraft, loadSpRegistrationDraft } from "../Registration/spRegistrationDraft";
 import BookingDialog from "../BookingDialog/BookingDialog";
+import ServicesDialog from "../ServiceDialogs/ServicesDialog";
 import ServiceDetailsDialog from "./ServiceDetailsDialog";
 import MaidServiceDialog from "../ServiceDialogs/MaidServiceDialog";
 import CookServiceDialog from "../ServiceDialogs/CookServiceDialog";
@@ -110,18 +111,35 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const [startTime, setStartTime] = useState<any>(null);
   const [endTime, setEndTime] = useState<any>(null);
   const [showRegistration, setShowRegistration] = useState(false);
+  const registrationResumeChecked = useRef(false);
   const [serviceDetailsOpen, setServiceDetailsOpen] = useState(false);
   const [selectedServiceType, setSelectedServiceType] = useState<"cook" | "maid" | "babycare" | null>(null);
   const [showMaidServiceDialog, setShowMaidServiceDialog] = useState(false);
   const [showNannyServicesDialog, setShowNannyServicesDialog] = useState(false);
   const [showCookDialog, setShowCookDialog] = useState(false);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
-  const [showServiceSelection, setShowServiceSelection] = useState(false);
+  const [showServicesDialog, setShowServicesDialog] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const scrollRef = useRef<ScrollView>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
   const [selectedServiceForDetails, setSelectedServiceForDetails] = useState<ServiceType | null>(null);
+
+  useEffect(() => {
+    if (registrationResumeChecked.current) return;
+    registrationResumeChecked.current = true;
+    let active = true;
+
+    void loadSpRegistrationDraft().then((draft) => {
+      if (active && hasMeaningfulDraft(draft)) {
+        setShowRegistration(true);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const services = useMemo(
     () => [
@@ -394,6 +412,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
     <View style={dynamicStyles.mainContainer}>
       {/* Sticky animated top bar: keeps ServEaso and LocationSelector always visible and compacts on scroll */}
       <HomeHeroChrome
+        homeLocationCard
         closeDropdowns={closeDropdowns}
         onLogoPress={() => {
           scrollRef.current?.scrollTo({ y: 0, animated: true });
@@ -654,7 +673,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
           {!isServiceProvider && !checkingOffer && showOffer ? (
             <View style={styles.promoWrap}>
-              <FirstBookingOffer onPress={() => setShowServiceSelection(true)} />
+              <FirstBookingOffer onBook={() => setShowServicesDialog(true)} />
             </View>
           ) : null}
 
@@ -825,13 +844,10 @@ const HomePage: React.FC<ChildComponentProps> = ({
         />
       ) : null}
 
-      <ServiceSelectionDialog
-        visible={showServiceSelection}
-        onClose={() => setShowServiceSelection(false)}
-        onSelectService={(serviceType: string) => {
-          setSelectedtype(serviceType);
-          setOpen(true);
-        }}
+      <ServicesDialog
+        open={showServicesDialog}
+        onClose={() => setShowServicesDialog(false)}
+        sendDataToParent={sendDataToParent}
       />
 
       <ServiceDetailsDialog open={serviceDetailsOpen} onClose={() => setServiceDetailsOpen(false)} serviceType={selectedServiceType} />
@@ -1117,7 +1133,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 12,
   },
-  promoWrap: { marginVertical: 12 },
+  promoWrap: { marginVertical: 8 },
   // Stats
   statsRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, marginVertical: 8 },
   statsRowNarrow: { flexDirection: "column", alignItems: "stretch" },

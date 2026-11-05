@@ -117,7 +117,7 @@ interface LocationSelectorProps {
   locationPreferencesReady?: boolean;
   isUserLoading?: boolean;
   /** `hero` — light text on dark home header; `chrome` — two-line location on app chrome bar */
-  variant?: "default" | "hero" | "chrome";
+  variant?: "default" | "hero" | "chrome" | "homeChrome";
 }
 
 const LocationSelector: React.FC<LocationSelectorProps> = ({
@@ -1617,12 +1617,28 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     );
   };
 
-  const isChromeVariant = variant === "chrome";
+  const isChromeVariant = variant === "chrome" || variant === "homeChrome";
+  const isHomeChromeVariant = variant === "homeChrome";
   const isHeroVariant = variant === "hero";
-  const isLightOnDark = isHeroVariant || isChromeVariant; // Hero and chrome variants have light text on dark
+  const isLightOnDark = isHeroVariant || (isChromeVariant && !isHomeChromeVariant);
 
   const dynamicStyles = StyleSheet.create({
-    locationContainer: isChromeVariant
+    locationContainer: isHomeChromeVariant
+      ? {
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: "#FFFFFF",
+          borderWidth: 1,
+          borderColor: "#E2E8F0",
+          borderRadius: 18,
+          width: "100%",
+          minHeight: 64,
+          paddingHorizontal: 10,
+          paddingVertical: 8,
+          justifyContent: "flex-start",
+          gap: 8,
+        }
+      : isChromeVariant
       ? {
           flexDirection: "row",
           alignItems: "center",
@@ -1656,22 +1672,22 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     chromeLocationLabel: {
       fontSize: 11,
       fontWeight: "600",
-      color: "#FFFFFF", // White for label
+      color: isHomeChromeVariant ? "#0F172A" : "#FFFFFF",
       letterSpacing: 0.2,
       marginBottom: 1,
-      opacity: 0.95,
-      textShadowColor: 'rgba(0, 0, 0, 0.25)',
+      opacity: isHomeChromeVariant ? 1 : 0.95,
+      textShadowColor: isHomeChromeVariant ? "transparent" : "rgba(0, 0, 0, 0.25)",
       textShadowOffset: { width: 0, height: 1 },
-      textShadowRadius: 2,
+      textShadowRadius: isHomeChromeVariant ? 0 : 2,
     },
     chromeAddressText: {
       fontSize: fontSizes.locationText,
       fontWeight: "700",
-      color: "#FFFFFF", // White for address
+      color: isHomeChromeVariant ? "#0F172A" : "#FFFFFF",
       letterSpacing: -0.2,
-      textShadowColor: 'rgba(0, 0, 0, 0.3)',
+      textShadowColor: isHomeChromeVariant ? "transparent" : "rgba(0, 0, 0, 0.3)",
       textShadowOffset: { width: 0, height: 1 },
-      textShadowRadius: 3,
+      textShadowRadius: isHomeChromeVariant ? 0 : 3,
     },
     locationText: {
       fontSize: fontSizes.locationText - 1,
@@ -2116,7 +2132,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       >
         {isChromeVariant ? (
           <>
-            <MaterialIcon name="location-on" size={22} color="#ffffff" />
+            <MaterialIcon
+              name="location-on"
+              size={22}
+              color={isHomeChromeVariant ? "#0F172A" : "#ffffff"}
+            />
             <View style={dynamicStyles.chromeTextColumn}>
               <Text style={dynamicStyles.chromeLocationLabel}>
                 {t("locationSelector.locationLabel", { defaultValue: "Location" })}
@@ -2132,7 +2152,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             <MaterialIcon
               name={showDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"}
               size={22}
-              color="#ffffff"
+              color={isHomeChromeVariant ? "#0F172A" : "#ffffff"}
             />
           </>
         ) : (

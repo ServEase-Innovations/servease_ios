@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -15,6 +15,7 @@ import {
 import { Text } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Portal } from 'react-native-paper';
+import { useTheme } from '../Settings/ThemeContext';
 
 interface RNFile {
   name: string;
@@ -28,6 +29,8 @@ interface ProfileImageUploadProps {
 }
 
 const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({ onImageSelect }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isCropDialogOpen, setIsCropDialogOpen] = useState(false);
@@ -361,7 +364,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({ onImageSelect }
           />
         ) : (
           <View style={styles.placeholder}>
-            <Icon name="camera-alt" size={40} color="#fff" />
+            <Icon name="camera-alt" size={40} color={colors.textInverse} />
           </View>
         )}
         
@@ -371,13 +374,13 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({ onImageSelect }
               style={styles.cameraButton}
               onPress={handleImagePick}
             >
-              <Icon name="camera-alt" size={20} color="#fff" />
+              <Icon name="camera-alt" size={20} color={colors.textInverse} />
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.removeButton}
               onPress={handleRemoveImage}
             >
-              <Icon name="close" size={20} color="#fff" />
+              <Icon name="close" size={20} color={colors.textInverse} />
             </TouchableOpacity>
           </>
         )}
@@ -394,7 +397,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({ onImageSelect }
           {/* Header */}
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setIsCropDialogOpen(false)}>
-              <Icon name="close" size={28} color="#333" />
+              <Icon name="close" size={28} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Adjust Image</Text>
             <TouchableOpacity onPress={handleCropConfirm}>
@@ -439,7 +442,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({ onImageSelect }
             {/* Loading Indicator */}
             {isImageLoading && (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#1976d2" />
+                <ActivityIndicator size="large" color={colors.primary} />
               </View>
             )}
             
@@ -481,7 +484,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({ onImageSelect }
             {/* Zoom Slider - Instagram style */}
             <View style={styles.zoomSliderWrapper}>
               <TouchableOpacity onPress={handleZoomOut} style={styles.zoomIconButton}>
-                <Icon name="remove" size={24} color="#666" />
+                <Icon name="remove" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
               
               <View style={styles.sliderContainer}>
@@ -496,13 +499,13 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({ onImageSelect }
               </View>
               
               <TouchableOpacity onPress={handleZoomIn} style={styles.zoomIconButton}>
-                <Icon name="add" size={24} color="#666" />
+                <Icon name="add" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             {/* Reset Button */}
             <TouchableOpacity style={styles.resetButton} onPress={resetCrop}>
-              <Icon name="refresh" size={20} color="#1976d2" />
+              <Icon name="refresh" size={20} color={colors.primary} />
               <Text style={styles.resetButtonText}>Reset</Text>
             </TouchableOpacity>
           </View>
@@ -516,7 +519,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({ onImageSelect }
 const { width: screenWidth } = Dimensions.get('window');
 const avatarSize = 150;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) => StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -527,7 +530,7 @@ const styles = StyleSheet.create({
     height: avatarSize,
     borderRadius: avatarSize / 2,
     overflow: 'hidden',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: colors.surface2,
     position: 'relative',
     elevation: 3,
     shadowColor: '#000',
@@ -551,7 +554,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 5,
     right: 5,
-    backgroundColor: 'rgba(33, 150, 243, 0.9)',
+    backgroundColor: colors.primary,
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -567,7 +570,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 5,
     right: 5,
-    backgroundColor: 'rgba(244, 67, 54, 0.9)',
+    backgroundColor: colors.error,
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -583,13 +586,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     fontWeight: '500',
-    color: '#1976d2',
+    color: colors.primary,
   },
   // Full screen modal styles
   fullScreenModal: {
     ...StyleSheet.absoluteFillObject,
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -598,19 +601,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 20,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: colors.border,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
   },
   confirmText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1976d2',
+    color: colors.primary,
   },
   // Full bleed image container
   fullImageContainer: {
@@ -693,7 +696,7 @@ const styles = StyleSheet.create({
   // Bottom controls
   bottomControls: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     paddingHorizontal: 24,
     paddingTop: 30,
   },
@@ -704,7 +707,7 @@ const styles = StyleSheet.create({
   zoomPercentageText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
   },
   zoomSliderWrapper: {
     flexDirection: 'row',
@@ -716,21 +719,21 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.surface2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sliderContainer: {
     flex: 1,
     height: 4,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: colors.border,
     borderRadius: 2,
     marginHorizontal: 15,
     overflow: 'hidden',
   },
   sliderFill: {
     height: '100%',
-    backgroundColor: '#1976d2',
+    backgroundColor: colors.primary,
     borderRadius: 2,
   },
   resetButton: {
@@ -738,13 +741,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.surface2,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.border,
   },
   resetButtonText: {
-    color: '#1976d2',
+    color: colors.primary,
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,

@@ -5,6 +5,8 @@ import {
   TouchableOpacity,
   Platform,
 } from "react-native";
+import Clipboard from "@react-native-clipboard/clipboard";
+import Snackbar from "react-native-snackbar";
 import { Text } from "../theme/BrandTypography";
 import LinearGradient from "react-native-linear-gradient";
 import Icon from "react-native-vector-icons/MaterialIcons";
@@ -12,14 +14,14 @@ import { useTheme } from "../Settings/ThemeContext";
 import { FIRST_BOOKING_COUPON_CODES } from "../services/couponService";
 
 interface FirstBookingOfferProps {
-  onPress: () => void;
+  onBook: () => void;
   visible?: boolean;
 }
 
 const MAX_FONT_SCALE = 1.2;
 
 const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
-  onPress,
+  onBook,
   visible = true,
 }) => {
   const { isDarkMode } = useTheme();
@@ -28,11 +30,27 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
 
   const mutedColor = isDarkMode ? "#66552F" : "#725B32";
 
+  const copyCoupon = async (code: string) => {
+    try {
+      await Clipboard.setString(code);
+      Snackbar.show({
+        text: `Coupon ${code} copied — apply at checkout`,
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: "#059669",
+        textColor: "#ffffff",
+      });
+    } catch {
+      Snackbar.show({
+        text: "Could not copy coupon. Please try again.",
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: "#DC2626",
+        textColor: "#ffffff",
+      });
+    }
+  };
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={onPress}
-      accessibilityRole="button"
+    <View
       accessibilityLabel={`First booking offer, 99 rupees with codes ${FIRST_BOOKING_COUPON_CODES.MAID} and ${FIRST_BOOKING_COUPON_CODES.COOK}`}
       style={styles.container}
     >
@@ -43,40 +61,55 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
           end={{ x: 1, y: 1 }}
           style={styles.card}
         >
-          <View style={styles.offerLabel}>
-            <Icon name="local-fire-department" size={17} color="#C2410C" />
-            <Text
-              style={styles.offerLabelText}
-              maxFontSizeMultiplier={MAX_FONT_SCALE}
-            >
-              FIRST BOOKING OFFER
-            </Text>
-          </View>
-
-          <View style={styles.priceSection}>
-            <Text
-              style={styles.price}
-              maxFontSizeMultiplier={MAX_FONT_SCALE}
-            >
-              ₹99
-            </Text>
-            <Text
-              style={styles.priceCaption}
-              maxFontSizeMultiplier={MAX_FONT_SCALE}
-            >
-              flat on your first booking
-            </Text>
+          <View style={styles.offerHeader}>
+            <View style={styles.offerLabel}>
+              <Icon name="local-fire-department" size={17} color="#C2410C" />
+              <Text
+                style={styles.offerLabelText}
+                maxFontSizeMultiplier={MAX_FONT_SCALE}
+              >
+                FIRST BOOKING OFFER
+              </Text>
+            </View>
+            <View style={styles.priceSection}>
+              <Text
+                style={styles.price}
+                maxFontSizeMultiplier={MAX_FONT_SCALE}
+              >
+                ₹99
+              </Text>
+              <Text
+                style={styles.priceCaption}
+                maxFontSizeMultiplier={MAX_FONT_SCALE}
+              >
+                flat on your first booking
+              </Text>
+            </View>
           </View>
 
           <View style={styles.couponSection}>
-            <Text
-              style={styles.couponHeading}
-              maxFontSizeMultiplier={MAX_FONT_SCALE}
-            >
-              Choose your coupon
-            </Text>
+            <View style={styles.couponTitleRow}>
+              <Text
+                style={styles.couponHeading}
+                maxFontSizeMultiplier={MAX_FONT_SCALE}
+              >
+                Choose your coupon
+              </Text>
+              <Text
+                style={styles.couponInstructions}
+                maxFontSizeMultiplier={MAX_FONT_SCALE}
+              >
+                Tap to copy · Apply at checkout
+              </Text>
+            </View>
             <View style={styles.couponList}>
-              <View style={styles.couponChip}>
+              <TouchableOpacity
+                onPress={() => void copyCoupon(FIRST_BOOKING_COUPON_CODES.MAID)}
+                style={styles.couponChip}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel={`Copy Maid coupon ${FIRST_BOOKING_COUPON_CODES.MAID}`}
+              >
                 <Text style={styles.couponService}>MAID</Text>
                 <Text
                   style={styles.couponCode}
@@ -84,8 +117,15 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
                 >
                   {FIRST_BOOKING_COUPON_CODES.MAID}
                 </Text>
-              </View>
-              <View style={styles.couponChip}>
+                <Icon name="content-copy" size={14} color="#8A6A2F" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => void copyCoupon(FIRST_BOOKING_COUPON_CODES.COOK)}
+                style={styles.couponChip}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel={`Copy Cook coupon ${FIRST_BOOKING_COUPON_CODES.COOK}`}
+              >
                 <Text style={styles.couponService}>COOK</Text>
                 <Text
                   style={styles.couponCode}
@@ -93,11 +133,18 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
                 >
                   {FIRST_BOOKING_COUPON_CODES.COOK}
                 </Text>
-              </View>
+                <Icon name="content-copy" size={14} color="#8A6A2F" />
+              </TouchableOpacity>
             </View>
           </View>
 
-          <View style={styles.bookingButton}>
+          <TouchableOpacity
+            style={styles.bookingButton}
+            activeOpacity={0.85}
+            onPress={onBook}
+            accessibilityRole="button"
+            accessibilityLabel="Tap to book with the first booking offer"
+          >
             <Text
               style={styles.bookingButtonText}
               maxFontSizeMultiplier={MAX_FONT_SCALE}
@@ -106,7 +153,7 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
               Tap to Book
             </Text>
             <Icon name="arrow-forward" size={19} color="#FFFFFF" />
-          </View>
+          </TouchableOpacity>
 
           <Text
             style={[styles.termsText, { color: mutedColor }]}
@@ -116,7 +163,7 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
           </Text>
         </LinearGradient>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
@@ -144,120 +191,140 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "rgba(201, 162, 78, 0.5)",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     overflow: "hidden",
+  },
+  offerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
   },
   offerLabel: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 20,
     backgroundColor: "rgba(255, 255, 255, 0.68)",
   },
   offerLabelText: {
     color: "#7C2D12",
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.4,
     flexShrink: 1,
   },
   priceSection: {
-    alignItems: "center",
-    paddingTop: 8,
-    paddingBottom: 14,
+    alignItems: "flex-end",
+    flexShrink: 1,
   },
   price: {
     color: "#1F1A10",
-    fontSize: 40,
+    fontSize: 24,
     fontWeight: "900",
-    lineHeight: 50,
-    textAlign: "center",
-    paddingHorizontal: 4,
+    lineHeight: 28,
+    textAlign: "right",
+    paddingHorizontal: 2,
   },
   priceCaption: {
     color: "#57462A",
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 10,
+    lineHeight: 14,
     fontWeight: "600",
-    textAlign: "center",
+    textAlign: "right",
   },
   couponSection: {
     borderTopWidth: 1,
     borderTopColor: "rgba(201, 162, 78, 0.35)",
-    paddingTop: 12,
+    paddingTop: 8,
+    marginTop: 8,
+  },
+  couponTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
+    marginBottom: 6,
   },
   couponHeading: {
     color: "#57462A",
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 8,
+    flexShrink: 0,
+  },
+  couponInstructions: {
+    color: "#725B32",
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: "500",
+    textAlign: "right",
+    flexShrink: 1,
   },
   couponList: {
     width: "100%",
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 8,
+    justifyContent: "space-between",
+    gap: 6,
   },
   couponChip: {
-    flexGrow: 1,
-    flexBasis: Platform.OS === "ios" ? 0 : "46%",
-    flexShrink: Platform.OS === "ios" ? 1 : 0,
+    flex: 1,
     minWidth: 0,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 4,
     backgroundColor: "rgba(255, 255, 255, 0.72)",
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderStyle: "dashed",
     borderColor: "#C9A24E",
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
   },
   couponService: {
     color: "#8A6A2F",
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 9,
+    lineHeight: 12,
     fontWeight: "800",
     letterSpacing: 0.8,
   },
   couponCode: {
     color: "#1F1A10",
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 10,
+    lineHeight: 14,
     fontWeight: "800",
     textAlign: "center",
     flexShrink: 1,
+    minWidth: 0,
   },
   bookingButton: {
-    minHeight: 50,
+    minHeight: 38,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    marginTop: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 14,
     backgroundColor: "#EA580C",
   },
   bookingButtonText: {
     color: "#FFFFFF",
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: "800",
     flexShrink: 0,
   },
   termsText: {
-    marginTop: 10,
-    fontSize: 11,
-    lineHeight: 16,
+    marginTop: 5,
+    fontSize: 9,
+    lineHeight: 12,
     textAlign: "center",
     fontWeight: "500",
     alignSelf: "stretch",

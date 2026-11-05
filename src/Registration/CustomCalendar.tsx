@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -10,6 +10,7 @@ import {
 import { Text } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import moment from 'moment';
+import { useTheme } from '../Settings/ThemeContext';
 
 interface CustomCalendarProps {
   selectedDate: Date;
@@ -24,6 +25,8 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({
   maxDate,
   minDate,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [currentDate, setCurrentDate] = useState(moment(selectedDate));
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
@@ -178,7 +181,7 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({
       {/* Header with Month, Year and Navigation */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handlePrevMonth}>
-          <Icon name="chevron-left" size={24} color="#333" />
+          <Icon name="chevron-left" size={24} color={colors.text} />
         </TouchableOpacity>
         
         <View style={styles.headerCenter}>
@@ -187,7 +190,7 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({
             onPress={() => setShowMonthPicker(true)}
           >
             <Text style={styles.headerText}>{monthName}</Text>
-            <Icon name="arrow-drop-down" size={20} color="#333" />
+            <Icon name="arrow-drop-down" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -195,12 +198,12 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({
             onPress={() => setShowYearPicker(true)}
           >
             <Text style={styles.headerText}>{year}</Text>
-            <Icon name="arrow-drop-down" size={20} color="#333" />
+            <Icon name="arrow-drop-down" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
         
         <TouchableOpacity onPress={handleNextMonth}>
-          <Icon name="chevron-right" size={24} color="#333" />
+          <Icon name="chevron-right" size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -238,7 +241,7 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Month</Text>
               <TouchableOpacity onPress={() => setShowMonthPicker(false)}>
-                <Icon name="close" size={24} color="#333" />
+                <Icon name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
             <View style={styles.monthGrid}>
@@ -280,20 +283,20 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Year</Text>
               <TouchableOpacity onPress={() => setShowYearPicker(false)}>
-                <Icon name="close" size={24} color="#333" />
+                <Icon name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
             
             {/* Year Navigation in Modal */}
             <View style={styles.yearModalNavigation}>
               <TouchableOpacity onPress={() => setCurrentDate(prev => prev.clone().subtract(20, 'year'))}>
-                <Icon name="keyboard-arrow-left" size={24} color="#333" />
+                <Icon name="keyboard-arrow-left" size={24} color={colors.text} />
               </TouchableOpacity>
               <Text style={styles.yearRangeText}>
                 {years[0]} - {years[years.length - 1]}
               </Text>
               <TouchableOpacity onPress={() => setCurrentDate(prev => prev.clone().add(20, 'year'))}>
-                <Icon name="keyboard-arrow-right" size={24} color="#333" />
+                <Icon name="keyboard-arrow-right" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
             
@@ -312,9 +315,9 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) => StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
   },
@@ -332,13 +335,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 8,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.surface2,
     borderRadius: 8,
   },
   headerText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
     marginRight: 4,
   },
   weekDays: {
@@ -350,7 +353,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 14,
     fontWeight: '500',
-    color: '#666',
+    color: colors.textSecondary,
   },
   dayCell: {
     flex: 1,
@@ -361,21 +364,21 @@ const styles = StyleSheet.create({
   },
   dayText: {
     fontSize: 16,
-    color: '#333',
+    color: colors.text,
   },
   selectedDay: {
-    backgroundColor: '#1976d2',
+    backgroundColor: colors.primary,
     borderRadius: 20,
   },
   selectedDayText: {
-    color: '#fff',
+    color: colors.textInverse,
     fontWeight: '500',
   },
   disabledDay: {
     opacity: 0.3,
   },
   disabledDayText: {
-    color: '#999',
+    color: colors.textDisabled,
   },
   // Modal Styles
   modalOverlay: {
@@ -385,7 +388,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 20,
     width: '80%',
@@ -404,7 +407,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
   },
   // Month Grid Styles
   monthGrid: {
@@ -416,19 +419,19 @@ const styles = StyleSheet.create({
     width: '30%',
     padding: 12,
     margin: '1.5%',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.surface2,
     borderRadius: 8,
     alignItems: 'center',
   },
   selectedMonthGridItem: {
-    backgroundColor: '#1976d2',
+    backgroundColor: colors.primary,
   },
   monthGridText: {
     fontSize: 14,
-    color: '#333',
+    color: colors.text,
   },
   selectedMonthGridText: {
-    color: '#fff',
+    color: colors.textInverse,
     fontWeight: '500',
   },
   // Year Picker Styles
@@ -441,7 +444,7 @@ const styles = StyleSheet.create({
   },
   yearRangeText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
   },
   yearList: {
     paddingHorizontal: 8,
@@ -450,45 +453,45 @@ const styles = StyleSheet.create({
     flex: 1,
     margin: 6,
     padding: 12,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.surface2,
     borderRadius: 8,
     alignItems: 'center',
   },
   selectedYear: {
-    backgroundColor: '#1976d2',
+    backgroundColor: colors.primary,
   },
   disabledYear: {
     opacity: 0.3,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: colors.surface3,
   },
   yearItemText: {
     fontSize: 16,
-    color: '#333',
+    color: colors.text,
   },
   selectedYearText: {
-    color: '#fff',
+    color: colors.textInverse,
     fontWeight: '500',
   },
   disabledYearText: {
-    color: '#999',
+    color: colors.textDisabled,
   },
   monthItem: {
     padding: 8,
     margin: 4,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.surface2,
     borderRadius: 8,
     alignItems: 'center',
     minWidth: 60,
   },
   selectedMonth: {
-    backgroundColor: '#1976d2',
+    backgroundColor: colors.primary,
   },
   monthItemText: {
     fontSize: 14,
-    color: '#333',
+    color: colors.text,
   },
   selectedMonthText: {
-    color: '#fff',
+    color: colors.textInverse,
   },
 });
 

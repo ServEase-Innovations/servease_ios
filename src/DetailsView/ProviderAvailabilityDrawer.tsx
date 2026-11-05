@@ -26,7 +26,8 @@ import { ServiceProviderDTO } from '../types/ProviderDetailsType';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import BottomSheetScaffold from '../design-system/BottomSheetScaffold';
-import { BRAND } from '../theme/brandColors';
+import LinearGradient from 'react-native-linear-gradient';
+import { BRAND, HOME_PAGE_GRADIENT } from '../theme/brandColors';
 import { readProviderLanguages } from '../utils/providerLanguages';
 
 interface ProviderAvailabilityDrawerProps {
@@ -185,34 +186,53 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
   };
 
   const renderHeader = () => (
-    <View style={styles.profileHeader}>
-      <View style={styles.profileHeaderLeft}>
-        <Text style={[styles.profileName, { fontSize: fontSizes.title }]}>
-          {provider.firstName} {provider.lastName}
-        </Text>
-        <View style={styles.rolePill}>
-          <Text style={styles.rolePillText}>{getServiceTypeLabel(provider.housekeepingRole)}</Text>
+    <LinearGradient
+      colors={[...HOME_PAGE_GRADIENT]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.profileHeader}
+    >
+      <View style={styles.headerTopRow}>
+        <View style={styles.handleBar} />
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close', { defaultValue: 'Close' })}
+          onPress={handleSheetClose}
+          style={styles.closeButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Icon name="close" size={22} color="#ffffff" />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.profileHeaderContent}>
+        <View style={styles.profileHeaderLeft}>
+          <Text style={[styles.profileName, { fontSize: fontSizes.title }]}>
+            {provider.firstName} {provider.lastName}
+          </Text>
+          <View style={styles.rolePill}>
+            <Text style={styles.rolePillText}>{getServiceTypeLabel(provider.housekeepingRole)}</Text>
+          </View>
+          <View style={styles.ratingRow}>
+            <MaterialCommunityIcons name="star" size={16} color="#FBBF24" />
+            <Text style={styles.ratingText}>{getRatingLine()}</Text>
+          </View>
         </View>
-        <View style={styles.ratingRow}>
-          <MaterialCommunityIcons name="star" size={16} color="#FBBF24" />
-          <Text style={styles.ratingText}>{getRatingLine()}</Text>
+        <View style={styles.avatarWrap}>
+          <View style={styles.avatarSquare}>
+            <Text style={styles.avatarInitials}>{getInitials()}</Text>
+          </View>
+          <View style={styles.verifiedBadge}>
+            <MaterialCommunityIcons name="check" size={10} color="#ffffff" />
+          </View>
         </View>
       </View>
-      <View style={styles.avatarWrap}>
-        <View style={styles.avatarSquare}>
-          <Text style={styles.avatarInitials}>{getInitials()}</Text>
-        </View>
-        <View style={styles.verifiedBadge}>
-          <MaterialCommunityIcons name="check" size={10} color="#ffffff" />
-        </View>
-      </View>
-    </View>
+    </LinearGradient>
   );
 
   const renderBestMatchAlert = () => {
     if (!provider.bestMatch) {
       return (
-        <View style={[styles.matchCard, styles.matchCardInfo]}>
+        <View style={[styles.matchCard, styles.matchCardInfo, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.matchIconBox, styles.matchIconBoxInfo]}>
             <Icon name="info" size={22} color={BRAND.accent} />
           </View>
@@ -229,7 +249,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
     }
 
     return (
-      <View style={[styles.matchCard, styles.matchCardSuccess]}>
+      <View style={[styles.matchCard, styles.matchCardSuccess, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={[styles.matchIconBox, styles.matchIconBoxSuccess]}>
           <MaterialCommunityIcons name="fire" size={22} color="#16a34a" />
         </View>
@@ -585,7 +605,10 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
   const renderNotices = () => (
     <View style={styles.notices}>
       {provider.monthlyAvailability?.fullyAvailable && (
-        <View style={[styles.matchCard, styles.availabilityCard]}>
+        <View style={[styles.matchCard, styles.availabilityCard, {
+          backgroundColor: isDarkMode ? colors.surface : BRAND.accentSoft,
+          borderColor: isDarkMode ? colors.border : '#bae6fd',
+        }]}>
           <View style={[styles.matchIconBox, styles.availabilityIconBox]}>
             <Icon name="check-circle" size={22} color={BRAND.accent} />
           </View>
@@ -601,7 +624,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
       )}
 
       {!provider.bestMatch && provider.monthlyAvailability?.fullyAvailable === false && (
-        <View style={[styles.matchCard, styles.matchCardWarning]}>
+        <View style={[styles.matchCard, styles.matchCardWarning, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.matchIconBox, styles.matchIconBoxWarning]}>
             <Icon name="info" size={22} color="#d97706" />
           </View>
@@ -622,19 +645,19 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
     <View style={styles.expertiseSection}>
       <Text style={[styles.expertiseHeading, { color: colors.text }]}>Expertise</Text>
       <View style={styles.expertiseGrid}>
-        <View style={[styles.expertiseCard, { backgroundColor: isDarkMode ? colors.surface : '#F1F5F9' }]}>
+        <View style={[styles.expertiseCard, { backgroundColor: isDarkMode ? colors.surface : '#F2F4F6' }]}>
           <MaterialCommunityIcons name="silverware-fork-knife" size={20} color={colors.textSecondary} />
           <Text style={[styles.expertiseLabel, { color: colors.textSecondary }]}>Service</Text>
           <Text style={[styles.expertiseValue, { color: colors.text }]}>{getServiceDisplayLabel()}</Text>
         </View>
-        <View style={[styles.expertiseCard, { backgroundColor: isDarkMode ? colors.surface : '#F1F5F9' }]}>
+        <View style={[styles.expertiseCard, { backgroundColor: isDarkMode ? colors.surface : '#F2F4F6' }]}>
           <MaterialCommunityIcons name="earth" size={20} color={colors.textSecondary} />
           <Text style={[styles.expertiseLabel, { color: colors.textSecondary }]}>Specialty</Text>
           <Text style={[styles.expertiseValue, { color: colors.text }]} numberOfLines={1}>
             {getSpecialtyLabel()}
           </Text>
         </View>
-        <View style={[styles.expertiseCard, { backgroundColor: isDarkMode ? colors.surface : '#F1F5F9' }]}>
+        <View style={[styles.expertiseCard, { backgroundColor: isDarkMode ? colors.surface : '#F2F4F6' }]}>
           <MaterialCommunityIcons name="briefcase-outline" size={20} color={colors.textSecondary} />
           <Text style={[styles.expertiseLabel, { color: colors.textSecondary }]}>Experience</Text>
           <Text style={[styles.expertiseValue, { color: colors.text }]}>
@@ -646,7 +669,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
   );
 
   const renderTabs = () => (
-    <View style={[styles.tabRow, { borderBottomColor: colors.border, backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
+    <View style={[styles.tabRow, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
       {[
         { key: 'overview', label: 'Overview' },
         { key: 'availability', label: 'Availability' },
@@ -658,14 +681,14 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
             key={tab.key}
             style={[
               styles.tabButton,
-              selected && [styles.tabButtonActive, { borderBottomColor: BRAND.bookingNavy }],
+              selected && [styles.tabButtonActive, { borderBottomColor: BRAND.accent }],
             ]}
             onPress={() => setActiveTab(tab.key as 'overview' | 'availability' | 'history')}
           >
             <Text
               style={[
                 styles.tabButtonText,
-                { color: selected ? BRAND.bookingNavy : colors.textSecondary },
+                { color: selected ? BRAND.accentDark : colors.textSecondary },
               ]}
             >
               {tab.label}
@@ -700,7 +723,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
       <>
         {renderPreviousBooking()}
         {!provider.previouslyBooked && (
-          <View style={[styles.alert, styles.infoAlert, { backgroundColor: colors.infoLight }]}>
+          <View style={[styles.alert, styles.infoAlert, { backgroundColor: isDarkMode ? colors.surface : BRAND.accentSoft }]}>
             <View style={styles.alertTextContainer}>
               <Text style={[styles.alertTitle, { color: colors.text }]}>No booking history yet</Text>
               <Text style={[styles.alertMessage, { color: colors.textSecondary }]}>
@@ -726,7 +749,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
           <View style={styles.backdrop}>
             <Animated.View style={{ transform: [{ translateY: sheetTranslateY }] }}>
               <BottomSheetScaffold
-                backgroundColor={isDarkMode ? colors.background : '#ffffff'}
+                backgroundColor={colors.background}
                 borderColor={colors.border}
                 style={styles.container}
               >
@@ -739,15 +762,15 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
               >
                 {renderTabContent()}
               </ScrollView>
-              <View style={[styles.footerBar, { borderTopColor: colors.border, backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
+              <View style={[styles.footerBar, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
                 <TouchableOpacity
-                  style={[styles.footerGhostButton, { borderColor: colors.text }]}
+                  style={[styles.footerGhostButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
                   onPress={handleSheetClose}
                 >
                   <Text style={[styles.footerGhostText, { color: colors.text }]}>Close</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.footerPrimaryButton, { backgroundColor: BRAND.bookingNavy }]}
+                  style={[styles.footerPrimaryButton, { backgroundColor: BRAND.accent }]}
                   onPress={() => onBookNow?.()}
                 >
                   <Text style={styles.footerPrimaryText}>Book Now</Text>
@@ -775,19 +798,42 @@ const styles = StyleSheet.create({
   container: {
     minHeight: '70%',
     maxHeight: '92%',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 1,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     overflow: 'hidden',
   },
   profileHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 20,
+  },
+  headerTopRow: {
+    minHeight: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  handleBar: {
+    width: 42,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.65)',
+  },
+  closeButton: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  profileHeaderContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    backgroundColor: BRAND.bookingNavy,
   },
   profileHeaderLeft: {
     flex: 1,
@@ -802,14 +848,14 @@ const styles = StyleSheet.create({
   },
   rolePill: {
     alignSelf: 'flex-start',
-    backgroundColor: BRAND.accent,
+    backgroundColor: 'rgba(255,255,255,0.94)',
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 4,
     marginBottom: 8,
   },
   rolePillText: {
-    color: '#ffffff',
+    color: BRAND.accentDark,
     fontWeight: '700',
     fontSize: 12,
     textTransform: 'capitalize',
@@ -832,9 +878,14 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 14,
-    backgroundColor: BRAND.accentSoft,
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   avatarInitials: {
     color: BRAND.bookingNavy,
@@ -850,7 +901,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#EAB308',
     borderWidth: 2,
-    borderColor: BRAND.bookingNavy,
+    borderColor: BRAND.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -886,8 +937,8 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#ffffff',
+    borderColor: BRAND.line,
+    backgroundColor: BRAND.surface,
     gap: 12,
   },
   matchCardSuccess: {
@@ -904,7 +955,7 @@ const styles = StyleSheet.create({
   },
   availabilityCard: {
     backgroundColor: BRAND.accentSoft,
-    borderColor: '#BFDBFE',
+    borderColor: '#bae6fd',
     borderLeftWidth: 0,
   },
   matchIconBox: {
@@ -986,7 +1037,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: BRAND.surface,
   },
   footerGhostText: {
     fontWeight: '700',
@@ -1047,8 +1098,8 @@ const styles = StyleSheet.create({
   },
   mainCard: {
     marginBottom: 16,
-    borderRadius: 12,
-    elevation: 1,
+    borderRadius: 16,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,

@@ -61,7 +61,13 @@ interface ServicesDialogProps {
   open: boolean;
   onClose: () => void;
   onServiceSelect?: (serviceType: string) => void;
-  sendDataToParent?: (data: string, type?: string) => void;
+  sendDataToParent?: (
+    data: string,
+    options?: {
+      bookingDate?: string;
+      initialTab?: 'today' | 'upcoming' | 'past' | 'cancelled' | 'pending';
+    }
+  ) => void;
 }
 
 const ServicesDialog: React.FC<ServicesDialogProps> = ({
@@ -543,10 +549,6 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
               ]}
               {...panResponder.panHandlers}
             >
-              <View style={styles.handleWrap}>
-                <View style={[styles.handle, { backgroundColor: borderColor }]} />
-              </View>
-
               <View style={styles.headerShell}>
                 <LinearGradient
                   colors={[...HOME_HERO_GRADIENT]}
@@ -555,6 +557,9 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
                   style={StyleSheet.absoluteFill}
                   pointerEvents="none"
                 />
+                <View style={styles.handleWrap}>
+                  <View style={styles.handle} />
+                </View>
                 <View style={styles.headerRow}>
                   <View style={styles.headerTextWrap}>
                     <Text style={styles.headerEyebrow}>
@@ -752,10 +757,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.62)',
   },
   headerShell: {
     position: 'relative',
     overflow: 'hidden',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   headerRow: {
     flexDirection: 'row',

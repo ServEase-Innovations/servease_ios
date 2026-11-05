@@ -58,6 +58,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   const mapRef = useRef<MapView | null>(null);
   const onLocationSelectRef = useRef(onLocationSelect);
   onLocationSelectRef.current = onLocationSelect;
+  const geocodeRequestRef = useRef(0);
 
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(
     null
@@ -132,10 +133,15 @@ const MapComponent: React.FC<MapComponentProps> = ({
     mapRef.current?.animateToRegion(nextRegion, 350);
   }, []);
 
-  const reverseGeocode = useCallback(async (lat: number, lng: number) => {
+  const reverseGeocode = useCallback(async (
+    lat: number,
+    lng: number,
+    requestId: number
+  ) => {
     setIsGeocoding(true);
     try {
       const res = await Geocoder.from(lat, lng);
+      if (requestId !== geocodeRequestRef.current) return;
       const results = res.results || [];
       if (results.length > 0) {
         const formatted = results[0].formatted_address || "";
@@ -146,21 +152,62 @@ const MapComponent: React.FC<MapComponentProps> = ({
           lng,
         });
       } else {
-        setAddress(t("locationSelector.addressNotAvailable", { defaultValue: "Address not found" }));
+        const fallbackAddress = `Map location (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+        setAddress(fallbackAddress);
+        onLocationSelectRef.current({
+          address: [{ formatted_address: fallbackAddress, address_components: [] }],
+          lat,
+          lng,
+        });
       }
     } catch (error) {
+      if (requestId !== geocodeRequestRef.current) return;
       console.error("Geocode error:", error);
-      setAddress(t("locationSelector.addressNotAvailable", { defaultValue: "Address not available" }));
+      const fallbackAddress = `Map location (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+      setAddress(fallbackAddress);
+      onLocationSelectRef.current({
+        address: [{ formatted_address: fallbackAddress, address_components: [] }],
+        lat,
+        lng,
+      });
     } finally {
-      setIsGeocoding(false);
+      if (requestId === geocodeRequestRef.current) {
+        setIsGeocoding(false);
+      }
     }
-  }, [t]);
+  }, []);
 
   const selectCoordinates = useCallback(
-    (latitude: number, longitude: number) => {
+    (
+      latitude: number,
+      longitude: number,
+      placeDetails?: {
+        formatted_address?: string;
+        address_components?: unknown[];
+      }
+    ) => {
+      const requestId = ++geocodeRequestRef.current;
       setClickedLocation({ latitude, longitude });
       focusMapOn(latitude, longitude);
-      void reverseGeocode(latitude, longitude);
+      if (placeDetails) {
+        setIsGeocoding(false);
+        const formattedAddress = placeDetails.formatted_address || "";
+        setAddress(formattedAddress);
+        onLocationSelectRef.current({
+          address: [placeDetails],
+          lat: latitude,
+          lng: longitude,
+        });
+      } else {
+        const fallbackAddress = `Map location (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`;
+        setAddress(fallbackAddress);
+        onLocationSelectRef.current({
+          address: [{ formatted_address: fallbackAddress, address_components: [] }],
+          lat: latitude,
+          lng: longitude,
+        });
+        void reverseGeocode(latitude, longitude, requestId);
+      }
     },
     [focusMapOn, reverseGeocode]
   );
@@ -185,13 +232,17 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
   const handlePlaceSelect = (
     _data: { description: string },
-    details: { geometry?: { location: { lat: number; lng: number } } } | null
+    details: {
+      geometry?: { location: { lat: number; lng: number } };
+      formatted_address?: string;
+      address_components?: unknown[];
+    } | null
   ) => {
     if (!details?.geometry?.location) {
       return;
     }
     const { lat, lng } = details.geometry.location;
-    selectCoordinates(lat, lng);
+    selectCoordinates(lat, lng, details);
   };
 
   return (
@@ -296,12 +347,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 8,
     zIndex: 10,
+    elevation: 10,
   },
   searchRow: {
     gap: 8,
+    zIndex: 20,
   },
   autocompleteWrap: {
     zIndex: 20,
+    elevation: 20,
   },
   placesContainer: {
     flex: 0,
@@ -346,6 +400,7 @@ const styles = StyleSheet.create({
   mapWrap: {
     flex: 1,
     minHeight: 180,
+    zIndex: 0,
   },
   map: {
     ...StyleSheet.absoluteFillObject,

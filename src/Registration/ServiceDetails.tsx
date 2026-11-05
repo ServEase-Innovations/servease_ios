@@ -1,5 +1,5 @@
 // components/Registration/ServiceDetails.tsx
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Text, TextInput } from "../theme/BrandTypography";
+import { useTheme } from "../Settings/ThemeContext";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import AvailabilityPicker from "../common/AvailabilityPicker/AvailabilityPicker";
 import { registrationKeyboardInputProps } from "../common/RegistrationKeyboardAccessory";
@@ -52,6 +53,8 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   onLanguagesChange,
   onTimeSlotsChange,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [availableLanguages, setAvailableLanguages] = useState<string[]>(
     PROVIDER_REGISTRATION_LANGUAGES_FALLBACK
@@ -102,11 +105,11 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       onPress={onPress}
       activeOpacity={0.8}
     >
-      <Icon name={service.icon} size={24} color={isSelected ? "#1976d2" : "#666"} />
+      <Icon name={service.icon} size={24} color={isSelected ? colors.primary : colors.textSecondary} />
       <Text style={[styles.serviceCardText, isSelected && styles.serviceCardTextSelected]}>
         {service.label}
       </Text>
-      {isSelected && <Icon name="check-circle" size={18} color="#1976d2" style={styles.checkIcon} />}
+      {isSelected && <Icon name="check-circle" size={18} color={colors.primary} style={styles.checkIcon} />}
     </TouchableOpacity>
   );
 
@@ -197,7 +200,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
           {...registrationKeyboardInputProps}
           style={styles.textArea}
           placeholder="Tell us about your skills and experience..."
-          placeholderTextColor="#999"
+          placeholderTextColor={colors.placeholder}
           value={formData.description}
           onChangeText={onDescriptionChange}
           multiline
@@ -215,14 +218,14 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
               ? `${selectedLanguages.length} language${selectedLanguages.length > 1 ? 's' : ''} selected`
               : "Select languages you speak"}
           </Text>
-          <Icon name="arrow-drop-down" size={24} color="#666" />
+          <Icon name="arrow-drop-down" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
         {selectedLanguages.length > 0 && (
           <View style={styles.languageChipsContainer}>
             {selectedLanguages.map((language, index) => (
               <TouchableOpacity key={index} style={styles.languageChip} onPress={() => handleLanguageSelect(language)}>
                 <Text style={styles.languageChipText}>{language}</Text>
-                <Icon name="close" size={14} color="#999" />
+                <Icon name="close" size={14} color={colors.textTertiary} />
               </TouchableOpacity>
             ))}
           </View>
@@ -237,7 +240,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
             {...registrationKeyboardInputProps}
             style={styles.input}
             placeholder="Years"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholder}
             value={formData.experience}
             onChangeText={onExperienceChange}
             keyboardType="numeric"
@@ -250,7 +253,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
             {...registrationKeyboardInputProps}
             style={styles.input}
             placeholder="Enter code"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholder}
             value={formData.referralCode || ""}
             onChangeText={onReferralCodeChange}
           />
@@ -264,7 +267,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
           {...registrationKeyboardInputProps}
           style={styles.input}
           placeholder="Enter agent referral ID"
-          placeholderTextColor="#999"
+          placeholderTextColor={colors.placeholder}
           value={formData.agentReferralId || ""}
           onChangeText={onAgentReferralIdChange}
         />
@@ -292,7 +295,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Languages</Text>
             <TouchableOpacity onPress={() => setLanguageModalVisible(false)}>
-              <Icon name="close" size={24} color="#666" />
+              <Icon name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -309,7 +312,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                 <Text style={[styles.languageItemText, selectedLanguages.includes(item) && styles.languageItemTextSelected]}>
                   {item}
                 </Text>
-                {selectedLanguages.includes(item) && <Icon name="check" size={20} color="#1976d2" />}
+                {selectedLanguages.includes(item) && <Icon name="check" size={20} color={colors.primary} />}
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -320,40 +323,41 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) => StyleSheet.create({
   wrapper: { flex: 1 },
-  container: { flex: 1, backgroundColor: '#f5f5f5', paddingBottom: 30 },
+  container: { flex: 1, backgroundColor: colors.background, paddingBottom: 24 },
   card: {
-    backgroundColor: '#fff', borderRadius: 12, marginHorizontal: 16, marginVertical: 6,
-    padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 2, elevation: 2,
+    backgroundColor: colors.card, borderRadius: 16, marginHorizontal: 16, marginVertical: 6,
+    padding: 16, borderWidth: 1, borderColor: colors.border,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 2, elevation: 1,
   },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 12 },
   serviceTypesContainer: { flexDirection: 'row', gap: 12 },
   serviceCard: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 10,
-    borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff', position: 'relative',
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, position: 'relative',
   },
-  serviceCardSelected: { borderColor: '#1976d2', backgroundColor: '#e3f2fd' },
-  serviceCardText: { fontSize: 14, fontWeight: '500', color: '#666' },
-  serviceCardTextSelected: { color: '#1976d2' },
+  serviceCardSelected: { borderColor: colors.primary, backgroundColor: colors.accentSoft },
+  serviceCardText: { fontSize: 14, fontWeight: '500', color: colors.textSecondary },
+  serviceCardTextSelected: { color: colors.primary, fontWeight: "700" },
   checkIcon: { position: 'absolute', top: 4, right: 4 },
   optionsContainer: { flexDirection: 'row', gap: 12 },
-  optionButton: { flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff', alignItems: 'center' },
-  optionButtonSelected: { borderColor: '#1976d2', backgroundColor: '#e3f2fd' },
-  optionButtonText: { fontSize: 14, color: '#666' },
-  optionButtonTextSelected: { color: '#1976d2', fontWeight: '600' },
-  textArea: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#333', minHeight: 100, textAlignVertical: 'top' },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#333' },
-  errorText: { fontSize: 12, color: '#f44336', marginTop: 6 },
+  optionButton: { flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center' },
+  optionButtonSelected: { borderColor: colors.primary, backgroundColor: colors.accentSoft },
+  optionButtonText: { fontSize: 14, color: colors.textSecondary },
+  optionButtonTextSelected: { color: colors.primary, fontWeight: '700' },
+  textArea: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 14, color: colors.text, backgroundColor: colors.surface, minHeight: 100, textAlignVertical: 'top' },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 14, color: colors.text, backgroundColor: colors.surface },
+  errorText: { fontSize: 12, color: colors.error, marginTop: 6 },
   rowContainer: { flexDirection: 'row', marginHorizontal: 16, gap: 12 },
   halfCard: { flex: 1, marginHorizontal: 0 },
-  languageSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12 },
-  languageSelectorText: { fontSize: 14, color: '#666' },
+  languageSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 10, padding: 12 },
+  languageSelectorText: { fontSize: 14, color: colors.textSecondary },
   languageChipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  languageChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e3f2fd', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, gap: 4 },
-  languageChipText: { fontSize: 12, color: '#1976d2' },
+  languageChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.accentSoft, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, gap: 4 },
+  languageChipText: { fontSize: 12, color: colors.primaryDark },
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
@@ -364,14 +368,14 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
-  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' },
+  modalContent: { backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' },
   languageList: { maxHeight: 360 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  modalTitle: { fontSize: 18, fontWeight: '600', color: '#333' },
-  languageItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  languageItemSelected: { backgroundColor: '#e3f2fd' },
-  languageItemText: { fontSize: 16, color: '#333' },
-  languageItemTextSelected: { color: '#1976d2', fontWeight: '500' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
+  languageItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
+  languageItemSelected: { backgroundColor: colors.accentSoft },
+  languageItemText: { fontSize: 16, color: colors.text },
+  languageItemTextSelected: { color: colors.primary, fontWeight: '700' },
 });
 
 export default ServiceDetails;

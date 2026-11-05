@@ -1,5 +1,5 @@
 // BankDetails.tsx - Updated for React Native
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -9,6 +9,7 @@ import {
   FlatList,
 } from "react-native";
 import { Text, TextInput } from "../theme/BrandTypography";
+import { useTheme } from "../Settings/ThemeContext";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { registrationKeyboardInputProps } from "../common/RegistrationKeyboardAccessory";
 
@@ -51,6 +52,8 @@ const BankDetails: React.FC<BankDetailsProps> = ({
   onFieldChange,
   onFieldFocus,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [showAccountTypePicker, setShowAccountTypePicker] = React.useState(false);
 
   const handleInputChange = useCallback((fieldName: string, value: string) => {
@@ -71,7 +74,7 @@ const BankDetails: React.FC<BankDetailsProps> = ({
 
   const renderInfoAlert = () => (
     <View style={styles.infoAlertContainer}>
-      <Icon name="info" size={20} color="#0288d1" style={styles.alertIcon} />
+      <Icon name="info" size={20} color={colors.primary} style={styles.alertIcon} />
       <View style={styles.alertContent}>
         <Text style={styles.alertTitle}>Bank Details</Text>
         <Text style={styles.alertMessage}>
@@ -83,7 +86,7 @@ const BankDetails: React.FC<BankDetailsProps> = ({
 
   const renderBottomAlert = () => (
     <View style={styles.bottomAlertContainer}>
-      <Icon name="info" size={16} color="#666" style={styles.bottomAlertIcon} />
+      <Icon name="info" size={16} color={colors.textSecondary} style={styles.bottomAlertIcon} />
       <Text style={styles.bottomAlertText}>
         All bank details are optional. You can add or update them later from your profile settings.
       </Text>
@@ -109,7 +112,7 @@ const BankDetails: React.FC<BankDetailsProps> = ({
             <View style={styles.pickerHeader}>
               <Text style={styles.pickerTitle}>Select Account Type</Text>
               <TouchableOpacity onPress={() => setShowAccountTypePicker(false)}>
-                <Icon name="close" size={24} color="#333" />
+                <Icon name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
             <FlatList
@@ -127,7 +130,7 @@ const BankDetails: React.FC<BankDetailsProps> = ({
                     {item.label}
                   </Text>
                   {formData.accountType === item.value && (
-                    <Icon name="check" size={20} color="#1976d2" />
+                    <Icon name="check" size={20} color={colors.primary} />
                   )}
                 </TouchableOpacity>
               )}
@@ -147,12 +150,12 @@ const BankDetails: React.FC<BankDetailsProps> = ({
         <View style={styles.fieldContainer}>
           {renderOptionalLabel("Bank Name")}
           <View style={[styles.inputWrapper, errors.bankName && styles.inputWrapperError]}>
-            <Icon name="account-balance" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="account-balance" size={20} color={colors.textSecondary} style={styles.inputIcon} />
             <TextInput
               {...registrationKeyboardInputProps}
               style={styles.input}
               placeholder="Enter bank name"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               value={formData.bankName}
               onChangeText={(value) => handleInputChange("bankName", value)}
               onFocus={() => onFieldFocus && onFieldFocus("bankName")}
@@ -165,12 +168,12 @@ const BankDetails: React.FC<BankDetailsProps> = ({
         <View style={styles.fieldContainer}>
           {renderOptionalLabel("Account Holder Name")}
           <View style={[styles.inputWrapper, errors.accountHolderName && styles.inputWrapperError]}>
-            <Icon name="person" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="person" size={20} color={colors.textSecondary} style={styles.inputIcon} />
             <TextInput
               {...registrationKeyboardInputProps}
               style={styles.input}
               placeholder="Enter account holder name"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               value={formData.accountHolderName}
               onChangeText={(value) => handleInputChange("accountHolderName", value)}
               onFocus={() => onFieldFocus && onFieldFocus("accountHolderName")}
@@ -183,12 +186,12 @@ const BankDetails: React.FC<BankDetailsProps> = ({
         <View style={styles.fieldContainer}>
           {renderOptionalLabel("Account Number")}
           <View style={[styles.inputWrapper, errors.accountNumber && styles.inputWrapperError]}>
-            <Icon name="credit-card" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="credit-card" size={20} color={colors.textSecondary} style={styles.inputIcon} />
             <TextInput
               {...registrationKeyboardInputProps}
               style={styles.input}
               placeholder="Enter account number"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               value={formData.accountNumber}
               onChangeText={(value) => handleInputChange("accountNumber", value)}
               onFocus={() => onFieldFocus && onFieldFocus("accountNumber")}
@@ -203,12 +206,12 @@ const BankDetails: React.FC<BankDetailsProps> = ({
         <View style={styles.fieldContainer}>
           {renderOptionalLabel("IFSC Code")}
           <View style={[styles.inputWrapper, errors.ifscCode && styles.inputWrapperError]}>
-            <Icon name="code" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="code" size={20} color={colors.textSecondary} style={styles.inputIcon} />
             <TextInput
               {...registrationKeyboardInputProps}
               style={[styles.input, styles.uppercaseInput]}
               placeholder="Enter IFSC code (e.g., SBIN0001234)"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               value={formData.ifscCode}
               onChangeText={(value) => handleInputChange("ifscCode", value.toUpperCase())}
               onFocus={() => onFieldFocus && onFieldFocus("ifscCode")}
@@ -226,7 +229,7 @@ const BankDetails: React.FC<BankDetailsProps> = ({
             style={[styles.selectWrapper, errors.accountType && styles.selectWrapperError]}
             onPress={() => setShowAccountTypePicker(true)}
           >
-            <Icon name="credit-card" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="credit-card" size={20} color={colors.textSecondary} style={styles.inputIcon} />
             <Text style={[
               styles.selectText,
               !formData.accountType && styles.selectPlaceholder
@@ -235,7 +238,7 @@ const BankDetails: React.FC<BankDetailsProps> = ({
                 ? accountTypes.find((type) => type.value === formData.accountType)?.label 
                 : "Select account type"}
             </Text>
-            <Icon name="arrow-drop-down" size={24} color="#666" />
+            <Icon name="arrow-drop-down" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
           {errors.accountType && <Text style={styles.errorText}>{errors.accountType}</Text>}
         </View>
@@ -244,12 +247,12 @@ const BankDetails: React.FC<BankDetailsProps> = ({
         <View style={styles.fieldContainer}>
           {renderOptionalLabel("UPI ID")}
           <View style={[styles.inputWrapper, errors.upiId && styles.inputWrapperError]}>
-            <Icon name="payment" size={20} color="#666" style={styles.inputIcon} />
+            <Icon name="payment" size={20} color={colors.textSecondary} style={styles.inputIcon} />
             <TextInput
               {...registrationKeyboardInputProps}
               style={styles.input}
               placeholder="Enter UPI ID (e.g., username@bankname)"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               value={formData.upiId}
               onChangeText={(value) => handleInputChange("upiId", value)}
               onFocus={() => onFieldFocus && onFieldFocus("upiId")}
@@ -268,22 +271,22 @@ const BankDetails: React.FC<BankDetailsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
   },
   content: {
     padding: 16,
   },
   infoAlertContainer: {
     flexDirection: "row",
-    backgroundColor: "#e3f2fd",
+    backgroundColor: colors.accentSoft,
     borderRadius: 8,
     padding: 12,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: "#90caf9",
+    borderColor: colors.primary,
   },
   alertIcon: {
     marginRight: 12,
@@ -295,22 +298,22 @@ const styles = StyleSheet.create({
   alertTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#0d3c61",
+    color: colors.primaryDark,
     marginBottom: 4,
   },
   alertMessage: {
     fontSize: 14,
-    color: "#0d3c61",
+    color: colors.text,
     lineHeight: 20,
   },
   bottomAlertContainer: {
     flexDirection: "row",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: colors.surface2,
     borderRadius: 8,
     padding: 12,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: colors.border,
   },
   bottomAlertIcon: {
     marginRight: 8,
@@ -319,7 +322,7 @@ const styles = StyleSheet.create({
   bottomAlertText: {
     flex: 1,
     fontSize: 12,
-    color: "#666",
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   fieldContainer: {
@@ -333,25 +336,25 @@ const styles = StyleSheet.create({
   labelText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#333",
+    color: colors.text,
     marginRight: 4,
   },
   optionalText: {
     fontSize: 12,
     fontWeight: "normal",
-    color: "#666",
+    color: colors.textSecondary,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 4,
-    backgroundColor: "#fff",
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
     minHeight: 56,
   },
   inputWrapperError: {
-    borderColor: "#d32f2f",
+    borderColor: colors.error,
   },
   inputIcon: {
     marginLeft: 12,
@@ -360,7 +363,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: "#333",
+    color: colors.text,
     paddingVertical: 12,
     paddingRight: 12,
   },
@@ -369,7 +372,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: "#d32f2f",
+    color: colors.error,
     marginTop: 4,
     marginLeft: 14,
   },
@@ -377,22 +380,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 4,
-    backgroundColor: "#fff",
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
     minHeight: 56,
   },
   selectWrapperError: {
-    borderColor: "#d32f2f",
+    borderColor: colors.error,
   },
   selectText: {
     flex: 1,
     fontSize: 16,
-    color: "#333",
+    color: colors.text,
     paddingVertical: 12,
   },
   selectPlaceholder: {
-    color: "#999",
+    color: colors.placeholder,
   },
   modalOverlay: {
     flex: 1,
@@ -401,7 +404,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   pickerContainer: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
     borderRadius: 8,
     width: "90%",
     maxHeight: "80%",
@@ -413,12 +416,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: colors.border,
   },
   pickerTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#333",
+    color: colors.text,
   },
   pickerItem: {
     flexDirection: "row",
@@ -426,14 +429,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: colors.border,
   },
   pickerItemText: {
     fontSize: 16,
-    color: "#333",
+    color: colors.text,
   },
   pickerItemTextSelected: {
-    color: "#1976d2",
+    color: colors.primary,
     fontWeight: "500",
   },
 });

@@ -30,7 +30,6 @@ import { TermsCheckboxes } from "../common/TermsCheckboxes";
 import { debounce } from "../utils/debounce";
 import { useFieldValidation } from "./useFieldValidation";
 import Geolocation from "@react-native-community/geolocation";
-import Geocoder from "react-native-geocoding";
 import { PERMISSIONS, request, check, RESULTS } from "react-native-permissions";
 import { useSelector } from "react-redux";
 import MapComponent from "../MapComponent/MapComponent";
@@ -44,7 +43,6 @@ import TnC from "../TermsAndConditions/TnC";
 import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
 import { HomeHeroPageHeader } from "../common/HomeHeroPageHeader";
-import { HOME_M3 } from "../theme/brandColors";
 import { Button } from "../common/Button";
 import {
   RegistrationAndroidKeyboardBar,
@@ -322,6 +320,7 @@ interface RegistrationProps {
 
 interface RegistrationContentProps extends RegistrationProps {
   onDismiss: () => void;
+  onRestart: () => void;
 }
 
 const ServiceProviderRegistration: React.FC<RegistrationProps> = (props) => (
@@ -334,8 +333,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = (props) => (
 
 const RegistrationSheetHost: React.FC<RegistrationProps> = (props) => {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [formInstance, setFormInstance] = useState(0);
 
   const dismissWithAnimation = useCallback(() => {
     Animated.parallel([
@@ -384,13 +385,19 @@ const RegistrationSheetHost: React.FC<RegistrationProps> = (props) => {
         style={[
           styles.sheet,
           {
+            backgroundColor: colors.surface,
             maxHeight: SHEET_MAX_HEIGHT,
             paddingBottom: Math.max(insets.bottom, 8),
             transform: [{ translateY: slideAnim }],
           },
         ]}
       >
-        <ServiceProviderRegistrationContent {...props} onDismiss={dismissWithAnimation} />
+        <ServiceProviderRegistrationContent
+          key={formInstance}
+          {...props}
+          onDismiss={dismissWithAnimation}
+          onRestart={() => setFormInstance((current) => current + 1)}
+        />
       </Animated.View>
     </View>
   );
@@ -400,6 +407,7 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
   onBackToLogin,
   onRegistrationSuccess,
   onDismiss,
+  onRestart,
 }) => {
   const insets = useSafeAreaInsets();
   const { user: auth0User } = useAuth0();
@@ -420,16 +428,25 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
     address: string;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [image, setImage] = useState<RNFile | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
+  const [mapSelectionSaving, setMapSelectionSaving] = useState(false);
   const [pendingMapSelection, setPendingMapSelection] = useState<{
     lat: number;
     lng: number;
-    locationData: any;
+    locationData: {
+      formatted_address?: string;
+      address_components?: Array<{
+        long_name?: string;
+        short_name?: string;
+        types?: string[];
+      }>;
+    } | null;
   } | null>(null);
   const geoLocation = useSelector(
     (state: { geoLocation?: { value?: unknown } }) => state?.geoLocation?.value
@@ -467,6 +484,8 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
   const [formData, setFormData] = useState<FormData>(createEmptySpFormData);
   const [draftReady, setDraftReady] = useState(false);
   const restoredDraftRef = useRef(false);
+  const draftPersistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftSavePromiseRef = useRef<Promise<void>>(Promise.resolve());
 
   const [errors, setErrors] = useState<FormErrors>({});
 
@@ -529,24 +548,24 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
     ]
   );
 
-  const persistDraftNow = useCallback(() => {
+  const saveDraftSnapshot = useCallback((snapshot: ReturnType<typeof buildDraftSnapshot>) => {
+    const savePromise = draftSavePromiseRef.current
+      .catch((error) => {
+        console.error("Previous service provider registration save failed:", error);
+      })
+      .then(() => saveSpRegistrationDraft(snapshot));
+    draftSavePromiseRef.current = savePromise;
+    return savePromise;
+  }, []);
+
+  const persistDraftNow = useCallback(async () => {
     if (!draftReady) return;
     const snapshot = buildDraftSnapshot();
     if (!hasMeaningfulDraft({ version: 1, savedAt: Date.now(), ...snapshot })) {
       return;
     }
-    void saveSpRegistrationDraft(snapshot);
-  }, [buildDraftSnapshot, draftReady]);
-
-  const debouncedPersistDraft = useMemo(
-    () => debounce(() => persistDraftNow(), 500),
-    [persistDraftNow]
-  );
-
-  // Initialize Geocoder
-  useEffect(() => {
-    Geocoder.init(keys.api_key);
-  }, []);
+    await saveDraftSnapshot(snapshot);
+  }, [buildDraftSnapshot, draftReady, saveDraftSnapshot]);
 
   useEffect(() => {
     let active = true;
@@ -589,15 +608,69 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
 
   useEffect(() => {
     if (!draftReady) return;
-    debouncedPersistDraft();
-  }, [draftReady, debouncedPersistDraft, buildDraftSnapshot]);
+    if (draftPersistTimeoutRef.current) {
+      clearTimeout(draftPersistTimeoutRef.current);
+    }
+    draftPersistTimeoutRef.current = setTimeout(() => {
+      draftPersistTimeoutRef.current = null;
+      void persistDraftNow().catch((error) => {
+        console.error("Failed to save service provider registration draft:", error);
+      });
+    }, 500);
+
+    return () => {
+      if (draftPersistTimeoutRef.current) {
+        clearTimeout(draftPersistTimeoutRef.current);
+        draftPersistTimeoutRef.current = null;
+      }
+    };
+  }, [draftReady, persistDraftNow, buildDraftSnapshot]);
+
+  const handleRestartRegistration = () => {
+    Alert.alert(
+      "Start a new registration?",
+      "This will permanently clear your saved progress and open a blank form.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Start over",
+          style: "destructive",
+          onPress: () => {
+            setIsRestarting(true);
+            if (draftPersistTimeoutRef.current) {
+              clearTimeout(draftPersistTimeoutRef.current);
+              draftPersistTimeoutRef.current = null;
+            }
+            void (async () => {
+              try {
+                await draftSavePromiseRef.current.catch((error) => {
+                  console.error("Pending registration save failed before restart:", error);
+                });
+                await clearSpRegistrationDraft();
+                onRestart();
+              } catch (error) {
+                console.error("Failed to clear service provider registration progress:", error);
+                setIsRestarting(false);
+                Alert.alert(
+                  "Could not start over",
+                  "Your saved progress could not be cleared. Please try again."
+                );
+              }
+            })();
+          },
+        },
+      ]
+    );
+  };
 
   useEffect(() => {
     if (!draftReady) return;
 
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (nextState === "background" || nextState === "inactive") {
-        persistDraftNow();
+        void persistDraftNow().catch((error) => {
+          console.error("Failed to save service provider registration draft:", error);
+        });
       }
     });
 
@@ -1368,78 +1441,150 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
     checkStepCompletion();
   };
 
-  const fetchLocationData = async () => {
-    try {
-      setLocationLoading(true);
-
-      const storedCoords = resolveLocationCoords(geoLocation);
-      if (storedCoords) {
-        showSnackbar("Using your saved location...", "info");
-        try {
-          const storedAddress = formatServiceAddressFromGeoLocation(geoLocation);
-          const res = await Geocoder.from(storedCoords.lat, storedCoords.lng);
-          const address = res.results[0]?.formatted_address || storedAddress;
-          const components = res.results[0]?.address_components || [];
-          applyAddressFromGeocode(storedCoords.lat, storedCoords.lng, address, components);
-          showSnackbar("Location fetched successfully!", "success");
-        } catch (error) {
-          console.error("Stored location geocoding error:", error);
-          showSnackbar("Error getting address from saved location", "warning");
-        } finally {
-          setLocationLoading(false);
-        }
-        return;
+  const reverseGeocodeCoordinates = async (latitude: number, longitude: number) => {
+    const response = await axios.get(
+      "https://maps.googleapis.com/maps/api/geocode/json",
+      {
+        params: {
+          latlng: `${latitude},${longitude}`,
+          key: keys.api_key,
+          language: "en",
+        },
       }
+    );
 
+    if (response.data?.status !== "OK" || !response.data.results?.length) {
+      throw new Error(
+        `Reverse geocoding failed: ${response.data?.status || "no address result"}`
+      );
+    }
+
+    const results = response.data.results as Array<{
+      formatted_address?: string;
+      address_components?: any[];
+    }>;
+    const bestResult = results[0];
+
+    return {
+      address: String(bestResult.formatted_address || ""),
+      components: results.flatMap((result) =>
+        Array.isArray(result.address_components) ? result.address_components : []
+      ),
+    };
+  };
+
+  const fetchLocationData = async () => {
+    setLocationLoading(true);
+    try {
       const hasPermission = await requestLocationPermission();
       if (!hasPermission) {
         Alert.alert(
           "Permission Required",
           "Location permission is required to fetch your current location.",
           [
-            {
-              text: "Open Settings",
-              onPress: () => Linking.openSettings(),
-            },
+            { text: "Open Settings", onPress: () => Linking.openSettings() },
             { text: "Cancel", style: "cancel" },
           ]
         );
-        setLocationLoading(false);
         return;
       }
 
       showSnackbar("Fetching your location...", "info");
+      const coordinates = await new Promise<{ latitude: number; longitude: number }>(
+        (resolve, reject) => {
+          Geolocation.getCurrentPosition(
+            ({ coords }) =>
+              resolve({
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+              }),
+            reject,
+            { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
+          );
+        }
+      );
 
-      Geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
+      let address = "";
+      let components: any[] = [];
+      try {
+        const geocoded = await reverseGeocodeCoordinates(
+          coordinates.latitude,
+          coordinates.longitude
+        );
+        address = geocoded.address;
+        components = geocoded.components;
+      } catch (error) {
+        console.error("Current location reverse-geocoding error:", error);
+      }
 
-          try {
-            const res = await Geocoder.from(latitude, longitude);
-            const address = res.results[0]?.formatted_address || "";
-            const components = res.results[0]?.address_components || [];
-            applyAddressFromGeocode(latitude, longitude, address, components);
-            showSnackbar("Location fetched successfully!", "success");
-          } catch (error) {
-            console.error("Geocoding error:", error);
-            showSnackbar("Error getting address from coordinates", "warning");
-          } finally {
-            setLocationLoading(false);
-          }
-        },
-        (error) => {
-          console.error("Location error:", error);
-          showSnackbar("Unable to fetch your location. Please check your GPS settings.", "error");
-          setLocationLoading(false);
-        },
-        { enableHighAccuracy: Platform.OS === 'ios', timeout: 15000, maximumAge: 10000 }
+      const locationLabel =
+        address ||
+        `Map location (${coordinates.latitude.toFixed(5)}, ${coordinates.longitude.toFixed(5)})`;
+      applyAddressFromGeocode(
+        coordinates.latitude,
+        coordinates.longitude,
+        locationLabel,
+        components
+      );
+      const hasAddressDetails = hasAutofillableAddressDetails(components);
+      const missingFields = getMissingAutofillFields(components);
+      showSnackbar(
+        hasAddressDetails
+          ? missingFields.length
+            ? `Location saved. Please enter the missing ${missingFields.join(", ")}.`
+            : "Location saved and all address fields were filled."
+          : "Location saved, but address details could not be found. Please enter the address manually.",
+        hasAddressDetails ? "success" : "warning"
       );
     } catch (error) {
       console.error("Location fetch error:", error);
-      showSnackbar("Unable to fetch your location. Please try again.", "error");
+      const savedCoords = resolveLocationCoords(geoLocation);
+      const savedAddress = formatServiceAddressFromGeoLocation(geoLocation);
+      if (savedCoords) {
+        applyAddressFromGeocode(
+          savedCoords.lat,
+          savedCoords.lng,
+          savedAddress,
+          []
+        );
+        showSnackbar(
+          "Current location unavailable. Saved location has been applied.",
+          "warning"
+        );
+      } else {
+        showSnackbar(
+          "Unable to fetch your location. Please check your GPS settings and try again.",
+          "error"
+        );
+      }
+    } finally {
       setLocationLoading(false);
     }
   };
+
+  const hasUsefulAddressComponents = (addressComponents: any[]) =>
+    Boolean(
+      addressComponents?.some((component) =>
+        component?.types?.some((type: string) =>
+          [
+            "street_number",
+            "subpremise",
+            "premise",
+            "route",
+            "neighborhood",
+            "sublocality",
+            "sublocality_level_1",
+            "locality",
+            "postal_town",
+            "administrative_area_level_2",
+            "administrative_area_level_3",
+            "administrative_area_level_1",
+            "country",
+            "postal_code",
+          ].includes(type)
+        )
+      )
+    );
 
   const applyAddressFromGeocode = (
     latitude: number,
@@ -1449,53 +1594,18 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
     copyToCorrespondence = isSameAddress
   ) => {
     const parsedAddress = parseAddressComponents(addressComponents);
-
-    if (!parsedAddress.city || !parsedAddress.street) {
-      const addressParts = address.split(',').map(part => part.trim());
-
-      if (addressParts.length > 0) {
-        if (!parsedAddress.apartment) {
-          parsedAddress.apartment = addressParts[0];
-        }
-        if (!parsedAddress.street && addressParts.length > 1) {
-          parsedAddress.street = addressParts[1];
-        }
-        if (!parsedAddress.city) {
-          for (let i = 1; i < addressParts.length - 2; i++) {
-            if (addressParts[i].match(/\d{6}/)) {
-              continue;
-            }
-            parsedAddress.city = addressParts[i];
-            break;
-          }
-        }
-      }
-    }
-
-    if (!parsedAddress.country) {
-      parsedAddress.country = "India";
-    }
-    if (!parsedAddress.state) {
-      parsedAddress.state = "Unknown";
-    }
-    if (!parsedAddress.city) {
-      parsedAddress.city = "Unknown";
-    }
-
-    const addressData = {
-      apartment: parsedAddress.apartment || "Current Location",
-      street: parsedAddress.street || "Current Location",
-      city: parsedAddress.city,
-      state: parsedAddress.state,
-      country: parsedAddress.country,
-      pincode: parsedAddress.pincode || "",
-    };
-
+    const locationLabel =
+      address ||
+      `Map location (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`;
     setFormData(prev => {
-      const newPermanentAddress = {
-        ...prev.permanentAddress,
-        ...addressData,
-      };
+      const newPermanentAddress = { ...prev.permanentAddress };
+      (Object.keys(parsedAddress) as (keyof AddressData)[]).forEach((field) => {
+        if (parsedAddress[field]) {
+          newPermanentAddress[field] = parsedAddress[field];
+        } else if (isGeneratedAddressPlaceholder(newPermanentAddress[field])) {
+          newPermanentAddress[field] = "";
+        }
+      });
       const newCorrespondenceAddress = copyToCorrespondence
         ? newPermanentAddress
         : prev.correspondenceAddress;
@@ -1504,11 +1614,11 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
         ...prev,
         latitude,
         longitude,
-        currentLocation: address,
-        street: addressData.street,
-        locality: addressData.city,
-        pincode: addressData.pincode,
-        buildingName: addressData.apartment,
+        currentLocation: locationLabel,
+        street: newPermanentAddress.street,
+        locality: newPermanentAddress.city,
+        pincode: newPermanentAddress.pincode,
+        buildingName: newPermanentAddress.apartment,
         permanentAddress: newPermanentAddress,
         correspondenceAddress: newCorrespondenceAddress,
       };
@@ -1517,33 +1627,62 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
     setCurrentLocation({
       latitude,
       longitude,
-      address,
+      address: locationLabel,
     });
   };
 
-  const handleMapLocationSelect = (data: { address: any; lat: number; lng: number }) => {
+  const handleMapLocationSelect = (data: {
+    address: any;
+    lat: number;
+    lng: number;
+  }) => {
     const locationData = Array.isArray(data.address) ? data.address[0] : data.address;
     setPendingMapSelection({
       lat: data.lat,
       lng: data.lng,
-      locationData,
+      locationData: locationData ?? null,
     });
   };
 
-  const handleSaveMapSelection = () => {
+  const handleSaveMapSelection = async () => {
     if (!pendingMapSelection) {
       showSnackbar("Please select a location from map first", "warning");
       return;
     }
 
-    const { lat, lng, locationData } = pendingMapSelection;
-    const address = locationData?.formatted_address || "";
-    const components = locationData?.address_components || [];
-    applyAddressFromGeocode(lat, lng, address, components, true);
-    setIsSameAddress(true);
-    setMapPickerOpen(false);
-    setPendingMapSelection(null);
-    showSnackbar("Location saved to address fields", "success");
+    setMapSelectionSaving(true);
+    try {
+      const { lat, lng, locationData } = pendingMapSelection;
+      let address = locationData?.formatted_address || "";
+      let components = locationData?.address_components || [];
+
+      if (!hasUsefulAddressComponents(components)) {
+        try {
+          const geocoded = await reverseGeocodeCoordinates(lat, lng);
+          address = geocoded.address || address;
+          components = geocoded.components;
+        } catch (error) {
+          console.error("Selected map location reverse-geocoding error:", error);
+        }
+      }
+
+      const hasAddressDetails = hasAutofillableAddressDetails(components);
+      const missingFields = getMissingAutofillFields(components);
+      applyAddressFromGeocode(lat, lng, address, components, true);
+      setIsSameAddress(true);
+      setMapPickerOpen(false);
+      setPendingMapSelection(null);
+      showSnackbar(
+        hasAddressDetails
+          ? missingFields.length
+            ? `Map location saved. Please enter the missing ${missingFields.join(", ")}.`
+            : "Map location saved and all address fields were filled."
+          : "Map location saved, but address details could not be found. Please enter the address manually.",
+        hasAddressDetails ? "success" : "warning"
+      );
+    } finally {
+      setMapSelectionSaving(false);
+    }
   };
 
   const getMapInitialCenter = () => {
@@ -1568,31 +1707,100 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
       country: '',
       pincode: ''
     };
+    const priorities = { street: 0, city: 0 };
+    let premise = "";
+    let subpremise = "";
+    let streetNumber = "";
+    let route = "";
 
-    addressComponents.forEach((component: any) => {
-      const types = component.types;
-      const longName = component.long_name;
+    (addressComponents || []).forEach((component: any) => {
+      const types: string[] = Array.isArray(component?.types) ? component.types : [];
+      const longName = String(component?.long_name || component?.short_name || "").trim();
+      if (!longName) return;
 
-      if (types.includes('street_number')) {
-        result.apartment = longName;
-      } else if (types.includes('route')) {
+      if (types.includes("premise")) premise = longName;
+      if (types.includes("subpremise")) subpremise = longName;
+      if (types.includes("street_number")) streetNumber = longName;
+      if (types.includes("route")) route = longName;
+
+      const streetPriority = types.includes("neighborhood")
+        ? 3
+        : types.includes("sublocality") ||
+            types.some((type) => /^sublocality_level_[1-5]$/.test(type))
+          ? 2
+          : 0;
+      if (streetPriority > priorities.street) {
+        priorities.street = streetPriority;
         result.street = longName;
-      } else if (types.includes('locality')) {
+      }
+
+      const cityPriority = types.includes("locality")
+        ? 4
+        : types.includes("postal_town")
+          ? 3
+          : types.includes("administrative_area_level_2")
+            ? 2
+            : types.includes("administrative_area_level_3")
+              ? 1
+              : 0;
+      if (cityPriority > priorities.city) {
+        priorities.city = cityPriority;
         result.city = longName;
-      } else if (types.includes('administrative_area_level_2')) {
-        if (!result.city) result.city = longName;
-      } else if (types.includes('administrative_area_level_1')) {
+      }
+      if (!result.state && types.includes("administrative_area_level_1")) {
         result.state = longName;
-      } else if (types.includes('country')) {
+      }
+      if (!result.country && types.includes("country")) {
         result.country = longName;
-      } else if (types.includes('postal_code')) {
-        result.pincode = longName;
-      } else if (types.includes('sublocality_level_1') || types.includes('neighborhood')) {
-        if (!result.street) result.street = longName;
+      }
+      if (!result.pincode && types.includes("postal_code")) {
+        const postalCode = longName.replace(/\D/g, "");
+        if (postalCode.length === 6) {
+          result.pincode = postalCode;
+        }
       }
     });
 
+    result.apartment = [premise, subpremise].filter(Boolean).join(", ");
+    if (route) {
+      result.street = [streetNumber, route].filter(Boolean).join(" ");
+    } else if (streetNumber && !result.street) {
+      result.street = streetNumber;
+    }
     return result;
+  };
+
+  const getMissingAutofillFields = (addressComponents: any[]) => {
+    const parsedAddress = parseAddressComponents(addressComponents);
+    return (
+      [
+        ["street", parsedAddress.street],
+        ["city", parsedAddress.city],
+        ["country", parsedAddress.country],
+        ["state", parsedAddress.state],
+        ["pincode", parsedAddress.pincode],
+      ] as const
+    )
+      .filter(([, value]) => !value)
+      .map(([field]) => field);
+  };
+
+  const isGeneratedAddressPlaceholder = (value: string) =>
+    value.trim().toLowerCase() === "current location" ||
+    value.trim().toLowerCase() === "unknown" ||
+    /^map location\s*\(\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)$/i.test(
+      value.trim()
+    );
+
+  const hasAutofillableAddressDetails = (addressComponents: any[]) => {
+    const parsedAddress = parseAddressComponents(addressComponents);
+    return Boolean(
+      parsedAddress.apartment ||
+        parsedAddress.street ||
+        parsedAddress.city ||
+        parsedAddress.state ||
+        parsedAddress.pincode
+    );
   };
 
   const requestLocationPermission = async (): Promise<boolean> => {
@@ -1627,7 +1835,7 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
     return true;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     // Check if validation is in progress on step 0
     if (activeStep === 0) {
       const isValidating = validationResults.email.loading || 
@@ -1639,21 +1847,39 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
         return;
       }
 
-      // Check if email is validated and available
-      if (!validationResults.email.isAvailable) {
+      // Recheck restored values, since availability state itself is not persisted.
+      const emailAvailable =
+        validationResults.email.isAvailable === null
+          ? await validateField("email", formData.emailId)
+          : validationResults.email.isAvailable;
+      if (!emailAvailable) {
         showSnackbar("Please use a valid and available email address", "error");
         return;
       }
 
-      // Check if mobile number is validated and available
-      if (!validationResults.mobile.isAvailable) {
+      const mobileAvailable =
+        validationResults.mobile.isAvailable === null
+          ? await validateField("mobile", formData.mobileNo)
+          : validationResults.mobile.isAvailable;
+      if (!mobileAvailable) {
         showSnackbar("Please use a valid and available mobile number", "error");
         return;
       }
     }
 
-    // Proceed to next step
-    setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
+    // Persist the destination step before the app can be interrupted.
+    const nextStep = Math.min(activeStep + 1, steps.length - 1);
+    setActiveStep(nextStep);
+    try {
+      await saveDraftSnapshot({
+        ...buildDraftSnapshot(),
+        activeStep: nextStep,
+      });
+    } catch (error) {
+      console.error("Failed to save service provider registration progress:", error);
+      showSnackbar("Progress could not be saved. Please keep the app open and try again.", "warning");
+    }
+
     // Scroll to top when step changes
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     if (activeStep === steps.length - 1) {
@@ -2013,13 +2239,20 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
             <View
               style={[
                 styles.stepperCircle,
-                index < activeStep && styles.stepperCircleCompleted,
-                index === activeStep && styles.stepperCircleActive,
-                index > activeStep && styles.stepperCircleInactive,
+                {
+                  backgroundColor:
+                    index < activeStep
+                      ? colors.success
+                      : index === activeStep
+                        ? colors.primary
+                        : isDarkMode
+                          ? colors.surface3
+                          : colors.border,
+                },
               ]}
             >
               {index < activeStep ? (
-                <Icon name="check" size={SCREEN_WIDTH < 380 ? 12 : 16} color="#fff" />
+                <Icon name="check" size={SCREEN_WIDTH < 380 ? 12 : 16} color={colors.textInverse} />
               ) : (
                 <Text style={[styles.stepperNumber, { fontSize: SCREEN_WIDTH < 380 ? 10 : 12 }]}>{index + 1}</Text>
               )}
@@ -2029,9 +2262,10 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
                 styles.stepperLabel,
                 { 
                   fontSize: SCREEN_WIDTH < 380 ? 9 : (SCREEN_WIDTH < 480 ? 10 : 11),
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  color: index <= activeStep ? colors.primary : colors.textSecondary,
+                  fontWeight: index === activeStep ? "700" : "500",
                 },
-                index <= activeStep ? styles.stepperLabelActive : styles.stepperLabelInactive,
               ]}
               numberOfLines={2}
             >
@@ -2041,7 +2275,7 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
               <View
                 style={[
                   styles.stepperLine,
-                  index < activeStep && styles.stepperLineActive,
+                  { backgroundColor: index < activeStep ? colors.primary : colors.border },
                 ]}
               />
             )}
@@ -2193,15 +2427,15 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
   };
 
   const headerSubtext = `Step ${activeStep + 1} of ${steps.length}`;
-  const surface = isDarkMode ? colors.surface : "#ffffff";
-  const textPrimary = isDarkMode ? colors.text : "#0f172a";
-  const textMuted = isDarkMode ? colors.textSecondary : "#64748b";
-  const borderColor = isDarkMode ? colors.border : "#e2e8f0";
+  const surface = colors.surface;
+  const textPrimary = colors.text;
+  const textMuted = colors.textSecondary;
+  const borderColor = colors.border;
 
   return (
-    <View style={[styles.sheetBody, { backgroundColor: isDarkMode ? colors.background : "#f8fafc" }]}>
+    <View style={[styles.sheetBody, { backgroundColor: colors.background }]}>
       <View style={[styles.sheetHeader, { backgroundColor: surface, borderBottomColor: borderColor }]}>
-        <View style={styles.headerAccent} />
+        <View style={[styles.headerAccent, { backgroundColor: colors.primary }]} />
         <View style={styles.handleRow}>
           <View style={[styles.sheetHandle, { backgroundColor: borderColor }]} />
         </View>
@@ -2215,30 +2449,44 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
               {headerSubtext}
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={onDismiss}
-            style={[styles.sheetCloseBtn, { backgroundColor: isDarkMode ? colors.card : "#f1f5f9" }]}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityLabel="Close registration"
-            accessibilityRole="button"
-          >
-            <Icon name="close" size={22} color={textPrimary} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={handleRestartRegistration}
+              style={[
+                styles.restartButton,
+                { backgroundColor: colors.surface2 },
+              ]}
+              disabled={isRestarting || isSubmitting}
+              accessibilityLabel="Start a new registration and clear saved progress"
+              accessibilityRole="button"
+            >
+              <Icon name="restart-alt" size={17} color={textPrimary} />
+              <Text style={[styles.restartButtonText, { color: textPrimary }]}>
+                Start over
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onDismiss}
+              style={[styles.sheetCloseBtn, { backgroundColor: colors.surface2 }]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Close registration"
+              accessibilityRole="button"
+            >
+              <Icon name="close" size={22} color={textPrimary} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
       <View style={styles.keyboardView}>
         <RegistrationKeyboardAccessory />
         <RegistrationAndroidKeyboardBar />
-        <View style={[styles.container, { backgroundColor: isDarkMode ? colors.background : "#f8fafc" }]}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
           <ScrollView
             ref={scrollViewRef}
-            style={[styles.content, { backgroundColor: isDarkMode ? colors.background : "#f8fafc" }]}
+            style={[styles.content, { backgroundColor: colors.background }]}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.contentContainer,
-              { paddingBottom: Math.max(insets.bottom, 16) + 48 },
-            ]}
+            contentContainerStyle={styles.contentContainer}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
@@ -2247,52 +2495,64 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
             }}
             scrollEventThrottle={16}
           >
-              {renderStepper()}
-              {renderStepContent(activeStep)}
+              {draftReady ? (
+                <>
+                  {renderStepper()}
+                  {renderStepContent(activeStep)}
+                </>
+              ) : (
+                <View style={styles.draftLoading}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={{ color: colors.textSecondary, marginTop: 12 }}>
+                    Restoring your registration...
+                  </Text>
+                </View>
+              )}
 
-              <View style={styles.buttonContainer}>
-                <Button
-                  variant="outline"
-                  size="medium"
-                  onPress={handleBack}
-                  disabled={isSubmitting}
-                  startIcon={<Icon name="arrow-back" size={20} color={colors.primary} />}
-                >
-                  Back
-                </Button>
-
-                {activeStep === steps.length - 1 ? (
-                  <Button
-                    variant="primary"
-                    size="medium"
-                    onPress={handleSubmit}
-                    disabled={isSubmitting || !areTermsAccepted()}
-                    loading={isSubmitting}
-                  >
-                    Submit
-                  </Button>
-                ) : (
-                  <Button
-                    variant="primary"
-                    size="medium"
-                    onPress={handleNext}
-                    disabled={
-                      isSubmitting || 
-                      (activeStep === 0 && (
-                        validationResults.email.loading || 
-                        validationResults.mobile.loading || 
-                        validationResults.alternate.loading ||
-                        !validationResults.email.isAvailable ||
-                        !validationResults.mobile.isAvailable
-                      ))
-                    }
-                    endIcon={<Icon name="arrow-forward" size={20} color="#fff" />}
-                  >
-                    Next
-                  </Button>
-                )}
-              </View>
             </ScrollView>
+
+            <View style={[styles.buttonContainer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+              <Button
+                variant="outline"
+                size="medium"
+                onPress={handleBack}
+                disabled={isSubmitting || isRestarting || !draftReady}
+                startIcon={<Icon name="arrow-back" size={20} color={colors.primary} />}
+              >
+                Back
+              </Button>
+
+              {activeStep === steps.length - 1 ? (
+                <Button
+                  variant="primary"
+                  size="medium"
+                  onPress={handleSubmit}
+                  disabled={isSubmitting || isRestarting || !draftReady || !areTermsAccepted()}
+                  loading={isSubmitting}
+                >
+                  Submit
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="medium"
+                  onPress={handleNext}
+                  disabled={
+                    isSubmitting ||
+                    isRestarting ||
+                    !draftReady ||
+                    (activeStep === 0 && (
+                      validationResults.email.loading ||
+                      validationResults.mobile.loading ||
+                      validationResults.alternate.loading
+                    ))
+                  }
+                  endIcon={<Icon name="arrow-forward" size={20} color={colors.textInverse} />}
+                >
+                  Next
+                </Button>
+              )}
+            </View>
 
             {policyModalVisible && (
               <Modal
@@ -2302,7 +2562,7 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
                 presentationStyle="fullScreen"
                 onRequestClose={() => setPolicyModalVisible(false)}
               >
-                <View style={[styles.policyModalContainer, { backgroundColor: HOME_M3.primary, flex: 1 }]}>
+                <View style={[styles.policyModalContainer, { backgroundColor: colors.background, flex: 1 }]}>
                   <HomeHeroPageHeader
                     title={
                       activePolicy === "terms"
@@ -2314,7 +2574,7 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
                     onBack={() => setPolicyModalVisible(false)}
                     backIcon="close"
                   />
-                  <ScrollView style={[styles.policyModalContent, { backgroundColor: HOME_M3.surface }]}>
+                  <ScrollView style={[styles.policyModalContent, { backgroundColor: colors.background }]}>
                     {renderPolicyContent()}
                   </ScrollView>
                 </View>
@@ -2323,7 +2583,7 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
 
             {snackbarOpen && (
               <View style={[styles.snackbar, styles[`snackbar${snackbarSeverity}`], { backgroundColor: colors[snackbarSeverity] || colors.primary }]}>
-                <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.text }]}>{snackbarMessage}</Text>
+                <Text style={[styles.snackbarText, { color: colors.textInverse, fontSize: fontSizes.text }]}>{snackbarMessage}</Text>
                 <TouchableOpacity onPress={handleCloseSnackbar}>
                   <Icon name="close" size={20} color="white" />
                 </TouchableOpacity>
@@ -2340,7 +2600,10 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
                   <Text style={[styles.mapPickerTitle, { color: colors.text, fontSize: fontSizes.heading }]}>
                     Select location from map
                   </Text>
-                  <TouchableOpacity onPress={() => setMapPickerOpen(false)}>
+                  <TouchableOpacity
+                    onPress={() => setMapPickerOpen(false)}
+                    style={[styles.mapPickerCloseButton, { backgroundColor: colors.surface2 }]}
+                  >
                     <Icon name="close" size={22} color={colors.text} />
                   </TouchableOpacity>
                 </View>
@@ -2376,14 +2639,18 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
                       style={[
                         styles.mapPickerSaveButton,
                         { backgroundColor: colors.primary },
-                        !pendingMapSelection && styles.buttonDisabled,
+                        (!pendingMapSelection || mapSelectionSaving) && styles.buttonDisabled,
                       ]}
                       onPress={handleSaveMapSelection}
-                      disabled={!pendingMapSelection}
+                      disabled={!pendingMapSelection || mapSelectionSaving}
                     >
-                      <Text style={{ color: "#fff", fontWeight: "600", fontSize: fontSizes.button }}>
-                        Save location
-                      </Text>
+                      {mapSelectionSaving ? (
+                        <ActivityIndicator color={colors.textInverse} />
+                      ) : (
+                        <Text style={{ color: colors.textInverse, fontWeight: "600", fontSize: fontSizes.button }}>
+                          Save location
+                        </Text>
+                      )}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -2430,7 +2697,7 @@ const styles = StyleSheet.create({
   headerAccent: {
     height: 4,
     width: "100%",
-    backgroundColor: "#2563eb",
+    backgroundColor: "#00BFFF",
   },
   handleRow: {
     alignItems: "center",
@@ -2449,6 +2716,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     gap: 12,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  restartButton: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+  },
+  restartButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   headerTextCol: {
     flex: 1,
@@ -2489,8 +2774,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    padding: 16,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  draftLoading: {
+    minHeight: 240,
+    alignItems: "center",
+    justifyContent: "center",
   },
   stepContainer: {
     marginBottom: 20,
@@ -2621,6 +2912,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     borderBottomWidth: 1,
   },
+  mapPickerCloseButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 20,
+  },
   mapPickerTitle: {
     fontWeight: "700",
     flex: 1,
@@ -2633,7 +2931,7 @@ const styles = StyleSheet.create({
   },
   mapPickerComponent: {
     flex: 1,
-    minHeight: 420,
+    minHeight: 220,
   },
   mapPickerHint: {
     lineHeight: 20,
@@ -2690,8 +2988,11 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 24,
-    marginBottom: 20,
+    marginTop: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderTopWidth: 1,
     gap: 12,
   },
   snackbar: {

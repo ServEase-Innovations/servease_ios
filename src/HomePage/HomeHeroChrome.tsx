@@ -31,6 +31,8 @@ type HomeHeroChromeProps = {
   onLogoPress?: () => void;
   /** Tighter header for SP tab screens (hides location row). */
   compact?: boolean;
+  /** Card-style location control used by the customer HomePage header. */
+  homeLocationCard?: boolean;
   topPadding?: number;
   gradientColors?: readonly string[];
   /**
@@ -49,6 +51,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
   closeDropdowns = false,
   onLogoPress,
   compact = false,
+  homeLocationCard = false,
   topPadding = 0,
   gradientColors = HOME_HERO_GRADIENT,
   gradientBottomInset,
@@ -167,39 +170,39 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
   const animatedContainerPadBottom = scrollY
     ? scrollY.interpolate({
         inputRange: [0, 80],
-        outputRange: [18, 8],
+        outputRange: [homeLocationCard ? 8 : 18, 8],
         extrapolate: "clamp",
       })
-    : undefined;
+    : homeLocationCard ? 8 : undefined;
 
   const animatedTopRowPadTop = scrollY
     ? scrollY.interpolate({
         inputRange: [0, 80],
-        outputRange: [baseTopPad, compactTopPad],
+        outputRange: [homeLocationCard ? compactTopPad : baseTopPad, compactTopPad],
         extrapolate: "clamp",
       })
-    : baseTopPad;
+    : homeLocationCard ? compactTopPad : baseTopPad;
 
   const animatedTopRowPadBottom = scrollY
     ? scrollY.interpolate({
         inputRange: [0, 80],
-        outputRange: [compact ? 10 : 12, 2],
+        outputRange: [homeLocationCard ? 2 : compact ? 10 : 12, 2],
         extrapolate: "clamp",
       })
-    : undefined;
+    : homeLocationCard ? 2 : undefined;
 
   const animatedWordmarkScale = scrollY
     ? scrollY.interpolate({
         inputRange: [0, 80],
-        outputRange: [1, 0.82],
+        outputRange: [homeLocationCard ? 0.82 : 1, 0.82],
         extrapolate: "clamp",
       })
-    : 1;
+    : homeLocationCard ? 0.82 : 1;
 
   const animatedWordmarkTranslateX = scrollY
     ? scrollY.interpolate({
         inputRange: [0, 80],
-        outputRange: [0, -12],
+        outputRange: [0, homeLocationCard ? 0 : -12],
         extrapolate: "clamp",
       })
     : 0;
@@ -207,10 +210,10 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
   const animatedNotifScale = scrollY
     ? scrollY.interpolate({
         inputRange: [0, 80],
-        outputRange: [1, 0.88],
+        outputRange: [homeLocationCard ? 0.88 : 1, 0.88],
         extrapolate: "clamp",
       })
-    : 1;
+    : homeLocationCard ? 0.88 : 1;
 
   const animatedLocationPillBg = scrollY
     ? scrollY.interpolate({
@@ -253,6 +256,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
           style={[
             styles.topRow,
             compact && styles.topRowCompact,
+            homeLocationCard && styles.homeLocationTopRow,
             {
               paddingTop: animatedTopRowPadTop,
               ...(animatedTopRowPadBottom != null
@@ -314,10 +318,11 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
         </Animated.View>
 
         {!compact ? (
-          <View style={styles.locationRow}>
+          <View style={[styles.locationRow, homeLocationCard && styles.homeLocationRow]}>
             <Animated.View
               style={[
                 styles.locationPillWrap,
+                homeLocationCard && styles.homeLocationPillWrap,
                 scrollY ? { backgroundColor: animatedLocationPillBg } : null,
               ]}
             >
@@ -329,7 +334,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
                 closeDropdown={closeDropdowns}
                 locationPreferencesReady={locationPreferencesReady}
                 isUserLoading={isUserLoading}
-                variant="chrome"
+                variant={homeLocationCard ? "homeChrome" : "chrome"}
               />
             </Animated.View>
           </View>
@@ -380,6 +385,10 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     zIndex: 10,
   },
+  homeLocationTopRow: {
+    paddingHorizontal: 18,
+    paddingBottom: 12,
+  },
   topRowCompact: {
     paddingBottom: 10,
   },
@@ -400,11 +409,22 @@ const styles = StyleSheet.create({
     zIndex: 10000,
     overflow: "visible",
   },
+  homeLocationRow: {
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+  },
   locationPillWrap: {
     borderRadius: 12,
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginHorizontal: -6,
+    overflow: "visible",
+  },
+  homeLocationPillWrap: {
+    borderRadius: 20,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    marginHorizontal: 0,
     overflow: "visible",
   },
   stickyBottomHighlight: {

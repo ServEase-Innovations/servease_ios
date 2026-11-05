@@ -11,6 +11,8 @@ import { Text } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Button } from '../common/Button';
 import { useTranslation } from 'react-i18next';
+import { useMemo } from 'react';
+import { useTheme } from '../Settings/ThemeContext';
 // import Button from '../common/Button';
 
 // Define proper TypeScript interfaces for React Native file objects
@@ -43,6 +45,8 @@ const CustomFileInput: React.FC<CustomFileInputProps> = ({
   onChange,
 }) => {
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const handleFilePick = async () => {
     try {
@@ -131,7 +135,7 @@ const CustomFileInput: React.FC<CustomFileInputProps> = ({
                 style={styles.removeButton}
                 accessibilityLabel={t('registration.fileUpload.removeFile')}
               >
-                <Icon name="close" size={20} color="#666" />
+                <Icon name="close" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             
@@ -165,7 +169,7 @@ const CustomFileInput: React.FC<CustomFileInputProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ReturnType<typeof useTheme>["colors"]) => StyleSheet.create({
   container: {
     width: '100%',
   },
@@ -177,11 +181,11 @@ const styles = StyleSheet.create({
   },
   fileInfoContainer: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 4,
+    borderColor: colors.border,
+    borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: colors.surface2,
   },
   fileHeader: {
     flexDirection: 'row',
@@ -192,7 +196,7 @@ const styles = StyleSheet.create({
   fileName: {
     fontSize: 14,
     flex: 1,
-    color: '#333',
+    color: colors.text,
     marginRight: 8,
   },
   removeButton: {
@@ -206,12 +210,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#333',
+    color: colors.textSecondary,
   },
   previewImage: {
     height: 200,
     borderRadius: 4,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: colors.surface3,
   },
   changeButton: {
     marginTop: 8,
