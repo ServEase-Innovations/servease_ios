@@ -84,7 +84,9 @@ export default function JourneyTrackingButton({ engagementId, onStatusChange }: 
       }
       
       // Start journey
+      console.log('🚀 Starting journey for engagement:', engagementId, 'with location:', location);
       const response = await startJourney(engagementId, location);
+      console.log('✅ Journey started successfully:', response);
       
       // Update status
       await loadTrackingStatus();
@@ -100,8 +102,22 @@ export default function JourneyTrackingButton({ engagementId, onStatusChange }: 
         onStatusChange(response.tracking_status);
       }
     } catch (error: any) {
-      console.error('Error starting journey:', error);
-      setErrorMessage(error.response?.data?.message || 'Failed to start journey. Please try again.');
+      console.error('❌ Error starting journey:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          data: error.config?.data,
+        }
+      });
+      setErrorMessage(
+        error.response?.data?.message || 
+        error.response?.data?.error || 
+        `Failed to start journey (${error.response?.status || 'Network Error'}). Please try again.`
+      );
       setErrorDialogVisible(true);
     } finally {
       setLoading(false);
