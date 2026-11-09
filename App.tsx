@@ -1121,6 +1121,7 @@ const MainApp = () => {
 
           {/* Scrollable Content Area */}
           <View
+            key={currentView}
             style={[
               styles.contentContainer,
               {
@@ -1466,6 +1467,7 @@ const styles = StyleSheet.create({
     right: 0,
     width: "100%",
     zIndex: 100,
+    elevation: 100,
     marginBottom: 0,
     paddingBottom: 0,
   },
