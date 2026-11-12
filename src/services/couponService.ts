@@ -225,18 +225,57 @@ export async function fetchCustomerCoupons(
   const st = serviceType.toUpperCase() as "COOK" | "MAID";
   const params: Record<string, string> = { serviceType: st };
   
+  console.log('[fetchCustomerCoupons] Request params:', {
+    customerId,
+    serviceType: st,
+    userCity: options?.userCity,
+    bookingType: options?.bookingType
+  });
+  
   // Add bookingType to API params if provided
   if (options?.bookingType) {
     // Normalize SHORT_TERM to SHORTTERM for API
     const bt = options.bookingType.toUpperCase().replace(/_/g, '');
     params.bookingType = bt;
+    console.log('[fetchCustomerCoupons] Normalized bookingType:', bt);
   }
   
+  console.log('[fetchCustomerCoupons] Final API params:', params);
+  
   const data = await fetchCustomerCouponPayload(customerId, params);
+  console.log('[fetchCustomerCoupons] Raw API response:', JSON.stringify(data, null, 2));
+  
   const mapped = mapCouponsFromApiPayload(data);
+  console.log('[fetchCustomerCoupons] Mapped coupons:', mapped.length, mapped);
+  
   const userCity = options?.userCity;
-  return mapped
-    .filter((c) => couponMatchesServiceType(st, c.serviceType))
-    .filter((c) => couponMeetsCity(c.city, userCity));
+  
+  // Apply service type filter
+  const afterServiceFilter = mapped.filter((c) => {
+    const match = couponMatchesServiceType(st, c.serviceType);
+    console.log('[fetchCustomerCoupons] Service type filter:', {
+      code: c.code,
+      requestedServiceType: st,
+      couponServiceType: c.serviceType,
+      match
+    });
+    return match;
+  });
+  console.log('[fetchCustomerCoupons] After service type filter:', afterServiceFilter.length);
+  
+  // Apply city filter
+  const afterCityFilter = afterServiceFilter.filter((c) => {
+    const match = couponMeetsCity(c.city, userCity);
+    console.log('[fetchCustomerCoupons] City filter:', {
+      code: c.code,
+      couponCity: c.city,
+      userCity,
+      match
+    });
+    return match;
+  });
+  console.log('[fetchCustomerCoupons] Final filtered coupons:', afterCityFilter.length, afterCityFilter);
+  
+  return afterCityFilter;
 }
 

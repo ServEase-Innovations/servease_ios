@@ -417,11 +417,20 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       ? (bookingTypeCode.replace(/_/g, '') as "MONTHLY" | "ONDEMAND" | "SHORTTERM")
       : undefined;
 
+    console.log('[ServiceBookingFlow.loadAvailableCoupons] Calling fetchCustomerCoupons with:', {
+      customerId,
+      serviceType: cfg.serviceType,
+      bookingTypeCode,
+      normalizedBookingType,
+      userCity: getUserCity()
+    });
+
     setCouponLoading(true);
     return fetchCustomerCoupons(customerId, cfg.serviceType, {
       bookingType: normalizedBookingType,
     })
       .then((mapped) => {
+        console.log('[ServiceBookingFlow.loadAvailableCoupons] Received coupons:', mapped.length, mapped);
         setAvailableCoupons(mapped);
         if (mapped.length === 0) {
           setCouponInfo(
