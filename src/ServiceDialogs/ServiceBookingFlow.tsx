@@ -421,8 +421,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       customerId,
       serviceType: cfg.serviceType,
       bookingTypeCode,
-      normalizedBookingType,
-      userCity: getUserCity()
+      normalizedBookingType
     });
 
     setCouponLoading(true);
