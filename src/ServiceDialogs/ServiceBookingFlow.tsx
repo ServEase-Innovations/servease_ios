@@ -412,8 +412,15 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       return Promise.resolve();
     }
 
+    // Normalize booking type: ON_DEMAND -> ONDEMAND, SHORT_TERM -> SHORTTERM
+    const normalizedBookingType = bookingTypeCode
+      ? (bookingTypeCode.replace(/_/g, '') as "MONTHLY" | "ONDEMAND" | "SHORTTERM")
+      : undefined;
+
     setCouponLoading(true);
-    return fetchCustomerCoupons(customerId, cfg.serviceType)
+    return fetchCustomerCoupons(customerId, cfg.serviceType, {
+      bookingType: normalizedBookingType,
+    })
       .then((mapped) => {
         setAvailableCoupons(mapped);
         if (mapped.length === 0) {
@@ -441,7 +448,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       .finally(() => {
         setCouponLoading(false);
       });
-  }, [appUser, cfg.serviceType]);
+  }, [appUser, cfg.serviceType, bookingTypeCode]);
 
   useEffect(() => {
     if (!active) return;

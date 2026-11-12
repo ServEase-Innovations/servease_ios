@@ -217,10 +217,22 @@ export async function isEligibleForFirstBookingOffer(
 export async function fetchCustomerCoupons(
   customerId: string | number,
   serviceType: "COOK" | "MAID",
-  options?: { userCity?: string | null }
+  options?: { 
+    userCity?: string | null;
+    bookingType?: "MONTHLY" | "ONDEMAND" | "SHORTTERM" | "SHORT_TERM";
+  }
 ): Promise<CustomerCoupon[]> {
   const st = serviceType.toUpperCase() as "COOK" | "MAID";
-  const data = await fetchCustomerCouponPayload(customerId, { serviceType: st });
+  const params: Record<string, string> = { serviceType: st };
+  
+  // Add bookingType to API params if provided
+  if (options?.bookingType) {
+    // Normalize SHORT_TERM to SHORTTERM for API
+    const bt = options.bookingType.toUpperCase().replace(/_/g, '');
+    params.bookingType = bt;
+  }
+  
+  const data = await fetchCustomerCouponPayload(customerId, params);
   const mapped = mapCouponsFromApiPayload(data);
   const userCity = options?.userCity;
   return mapped
