@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { encode as base64Encode } from 'base-64';
+import { BRAND, HOME_M3 } from '../theme/brandColors';
 
 export type InvoicePdfInput = {
   invoiceNumber: string;
@@ -34,6 +35,24 @@ const COMPANY = {
   phone: '080-123456789',
   email: 'support@serveaso.com',
   website: 'www.serveaso.com',
+};
+
+function toPdfColor(hexColor: string) {
+  const hex = hexColor.replace('#', '');
+  return rgb(
+    parseInt(hex.slice(0, 2), 16) / 255,
+    parseInt(hex.slice(2, 4), 16) / 255,
+    parseInt(hex.slice(4, 6), 16) / 255
+  );
+}
+
+const PDF_THEME = {
+  header: toPdfColor(HOME_M3.primary),
+  headerText: toPdfColor(BRAND.bookingNavy),
+  text: toPdfColor(BRAND.text),
+  muted: toPdfColor(BRAND.textMuted),
+  line: toPdfColor(BRAND.line),
+  sectionTitle: toPdfColor(BRAND.bookingNavy),
 };
 
 /** pdf-lib standard fonts only support WinAnsi — strip unsupported chars. */
@@ -72,7 +91,7 @@ function drawLines(
   x: number,
   y: number,
   size: number,
-  color = rgb(0.2, 0.2, 0.2)
+  color = PDF_THEME.text
 ): number {
   let cursor = y;
   for (const line of lines) {
@@ -91,10 +110,10 @@ function drawRow(
   y: number,
   valueFont = font
 ): number {
-  page.drawText(sanitizePdfText(label), { x: 50, y, size: 10, font });
+  page.drawText(sanitizePdfText(label), { x: 50, y, size: 10, font, color: PDF_THEME.text });
   const valueText = sanitizePdfText(value);
   const valueWidth = valueFont.widthOfTextAtSize(valueText, 10);
-  page.drawText(valueText, { x: 545 - valueWidth, y, size: 10, font: valueFont });
+  page.drawText(valueText, { x: 545 - valueWidth, y, size: 10, font: valueFont, color: PDF_THEME.text });
   return y - 16;
 }
 
@@ -103,23 +122,21 @@ export async function generateInvoicePdfBase64(input: InvoicePdfInput): Promise<
   const page = pdfDoc.addPage([595.28, 841.89]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const headerColor = rgb(0.12, 0.24, 0.45);
-  const muted = rgb(0.35, 0.35, 0.35);
 
   page.drawRectangle({
     x: 0,
     y: 793,
     width: 595.28,
     height: 48,
-    color: headerColor,
+    color: PDF_THEME.header,
   });
-  page.drawText('ServEaso', { x: 50, y: 820, size: 16, font: bold, color: rgb(1, 1, 1) });
+  page.drawText('ServEaso', { x: 50, y: 820, size: 16, font: bold, color: PDF_THEME.headerText });
   page.drawText('Tax Invoice / Cash Memo / Bill of Supply', {
     x: 50,
     y: 802,
     size: 9,
     font,
-    color: rgb(1, 1, 1),
+    color: PDF_THEME.headerText,
   });
 
   const invoiceNo = sanitizePdfText(`Invoice No: ${input.invoiceNumber}`);
@@ -129,19 +146,19 @@ export async function generateInvoicePdfBase64(input: InvoicePdfInput): Promise<
     y: 820,
     size: 10,
     font: bold,
-    color: rgb(1, 1, 1),
+    color: PDF_THEME.headerText,
   });
   page.drawText(invoiceDate, {
     x: 545 - font.widthOfTextAtSize(invoiceDate, 10),
     y: 804,
     size: 10,
     font,
-    color: rgb(1, 1, 1),
+    color: PDF_THEME.headerText,
   });
 
   let y = 770;
-  page.drawText(sanitizePdfText(COMPANY.name), { x: 50, y, size: 11, font: bold, color: headerColor });
-  y = drawLines(page, font, wrapText(COMPANY.address, 42), 50, y - 16, 9, muted);
+  page.drawText(sanitizePdfText(COMPANY.name), { x: 50, y, size: 11, font: bold, color: PDF_THEME.sectionTitle });
+  y = drawLines(page, font, wrapText(COMPANY.address, 42), 50, y - 16, 9, PDF_THEME.muted);
   y = drawLines(
     page,
     font,
@@ -149,13 +166,13 @@ export async function generateInvoicePdfBase64(input: InvoicePdfInput): Promise<
     50,
     y - 4,
     9,
-    muted
+    PDF_THEME.muted
   );
 
   let rightY = 770;
-  page.drawText('Customer', { x: 310, y: rightY, size: 11, font: bold, color: headerColor });
-  rightY = drawLines(page, font, wrapText(input.customerName, 38), 310, rightY - 16, 9, muted);
-  rightY = drawLines(page, font, wrapText(input.customerAddress, 38), 310, rightY - 4, 9, muted);
+  page.drawText('Customer', { x: 310, y: rightY, size: 11, font: bold, color: PDF_THEME.sectionTitle });
+  rightY = drawLines(page, font, wrapText(input.customerName, 38), 310, rightY - 16, 9, PDF_THEME.muted);
+  rightY = drawLines(page, font, wrapText(input.customerAddress, 38), 310, rightY - 4, 9, PDF_THEME.muted);
   rightY = drawLines(
     page,
     font,
@@ -163,14 +180,14 @@ export async function generateInvoicePdfBase64(input: InvoicePdfInput): Promise<
     310,
     rightY - 4,
     9,
-    muted
+    PDF_THEME.muted
   );
 
   y = Math.min(y, rightY) - 20;
-  page.drawLine({ start: { x: 50, y }, end: { x: 545, y }, thickness: 1, color: rgb(0.85, 0.85, 0.85) });
+  page.drawLine({ start: { x: 50, y }, end: { x: 545, y }, thickness: 1, color: PDF_THEME.line });
   y -= 18;
 
-  page.drawText('Booking Details', { x: 50, y, size: 11, font: bold, color: headerColor });
+  page.drawText('Booking Details', { x: 50, y, size: 11, font: bold, color: PDF_THEME.sectionTitle });
   y -= 18;
   y = drawRow(page, font, bold, 'Booking ID', String(input.bookingId), y);
   y = drawRow(page, font, bold, 'Service Type', input.serviceType, y);
@@ -183,7 +200,7 @@ export async function generateInvoicePdfBase64(input: InvoicePdfInput): Promise<
   y = drawRow(page, font, bold, 'Service Provider', input.providerName, y);
 
   y -= 8;
-  page.drawText('Payment Summary', { x: 50, y, size: 11, font: bold, color: headerColor });
+  page.drawText('Payment Summary', { x: 50, y, size: 11, font: bold, color: PDF_THEME.sectionTitle });
   y -= 18;
   y = drawRow(page, font, bold, 'Base Amount', `Rs.${input.baseAmount.toFixed(2)}`, y);
   if (input.couponDiscount > 0) {
@@ -195,13 +212,13 @@ export async function generateInvoicePdfBase64(input: InvoicePdfInput): Promise<
   y = drawRow(page, font, bold, 'Payment Status', input.paymentStatus, y);
   y = drawRow(page, font, bold, 'Payment Mode', input.paymentMode, y);
   if (input.transactionId) {
-    y = drawLines(page, font, wrapText(`Transaction ID: ${input.transactionId}`, 90), 50, y - 4, 9, muted);
+    y = drawLines(page, font, wrapText(`Transaction ID: ${input.transactionId}`, 90), 50, y - 4, 9, PDF_THEME.muted);
   }
 
   y -= 10;
-  page.drawLine({ start: { x: 50, y }, end: { x: 545, y }, thickness: 1, color: rgb(0.85, 0.85, 0.85) });
+  page.drawLine({ start: { x: 50, y }, end: { x: 545, y }, thickness: 1, color: PDF_THEME.line });
   y -= 14;
-  y = drawLines(page, font, wrapText(`${COMPANY.name} | ${COMPANY.address}`, 95), 50, y, 8, muted);
+  y = drawLines(page, font, wrapText(`${COMPANY.name} | ${COMPANY.address}`, 95), 50, y, 8, PDF_THEME.muted);
   y = drawLines(
     page,
     font,
@@ -209,7 +226,7 @@ export async function generateInvoicePdfBase64(input: InvoicePdfInput): Promise<
     50,
     y - 2,
     8,
-    muted
+    PDF_THEME.muted
   );
   y = drawLines(
     page,
@@ -218,7 +235,7 @@ export async function generateInvoicePdfBase64(input: InvoicePdfInput): Promise<
     50,
     y - 2,
     8,
-    muted
+    PDF_THEME.muted
   );
   drawLines(
     page,
@@ -227,7 +244,7 @@ export async function generateInvoicePdfBase64(input: InvoicePdfInput): Promise<
     50,
     y - 2,
     8,
-    muted
+    PDF_THEME.muted
   );
 
   const bytes = await pdfDoc.save();
