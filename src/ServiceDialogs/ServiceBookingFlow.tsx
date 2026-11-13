@@ -242,27 +242,23 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
     availableCouponsCount: availableCoupons.length
   });
   
-  const paymentTotals = useMemo(
-    () => computePaymentTotals(serviceTotal),
-    [serviceTotal]
-  );
-  const payableTotal = paymentTotals.total_amount || 0;
+  // Platform fees are now included in the quote API response
+  // So we use the quote total directly without adding fees again
+  const payableTotal = serviceTotal;
   const walletSplit = useMemo(
     () =>
       computeCheckoutWithWallet(
-        paymentTotals,
+        { total_amount: payableTotal, base_amount: serviceTotal, platform_fee: 0, gst: 0, taxes_and_fees: 0 },
         walletBalance,
         useWalletBalance && walletBalance > 0
       ),
-    [paymentTotals, walletBalance, useWalletBalance]
+    [payableTotal, serviceTotal, walletBalance, useWalletBalance]
   );
   const payableViaGateway = walletSplit.razorpay_amount;
   const displayPayableAmount =
     walletSplit.wallet_applied > 0 ? payableViaGateway : payableTotal;
-  const displayBreakdown = useMemo(
-    () => appendPaymentFeeRows(quotePreview.breakdown, serviceTotal),
-    [quotePreview.breakdown, serviceTotal]
-  );
+  // Quote breakdown already includes platform fees and taxes
+  const displayBreakdown = quotePreview.breakdown;
   const priceReady =
     scheduleReady &&
     !quotePreview.loading &&
