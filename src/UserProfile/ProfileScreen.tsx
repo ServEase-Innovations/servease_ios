@@ -354,9 +354,24 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   };
 
   // Format mobile number for display
-  const formatMobileNumber = (number: string | null) => {
-    if (!number || number === "null" || number === "undefined") return "";
-    return number;
+  const toInputString = (value: unknown): string => {
+    if (typeof value === "string") return value;
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+    return "";
+  };
+
+  const formatMobileNumber = (number: unknown): string => {
+    const formattedNumber = toInputString(number);
+    if (
+      !formattedNumber ||
+      formattedNumber === "null" ||
+      formattedNumber === "undefined"
+    ) {
+      return "";
+    }
+    return formattedNumber;
   };
 
   // Mobile number validation functions
@@ -862,12 +877,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       });
 
       const updatedUserData = {
-        firstName: customer.firstName || "",
-        lastName: customer.lastName || "",
-        contactNumber: mobileNoFromApi ? mobileNoFromApi.toString() : "",
-        altContactNumber: altMobileNoFromApi
-          ? altMobileNoFromApi.toString()
-          : "",
+        firstName: toInputString(customer.firstName),
+        lastName: toInputString(customer.lastName),
+        contactNumber: toInputString(mobileNoFromApi),
+        altContactNumber: toInputString(altMobileNoFromApi),
       };
 
       setUserData(updatedUserData);
@@ -973,10 +986,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       setServiceProviderData(data);
 
       const updatedUserData = {
-        firstName: data.firstName || "",
-        lastName: data.lastName || "",
-        contactNumber: data.mobileNo ? data.mobileNo.toString() : "",
-        altContactNumber: data.alternateNo ? data.alternateNo.toString() : "",
+        firstName: toInputString(data.firstName),
+        lastName: toInputString(data.lastName),
+        contactNumber: toInputString(data.mobileNo),
+        altContactNumber: toInputString(data.alternateNo),
       };
 
       setUserData(updatedUserData);
@@ -1184,10 +1197,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
             // Initialize userData from Redux state - MATCHING REACT VERSION
             const updatedUserData = {
-              firstName: firstName || name?.split(" ")[0] || "",
-              lastName: lastName || name?.split(" ").slice(1).join(" ") || "",
-              contactNumber: mobileNo || "",
-              altContactNumber: alternateNo || "",
+              firstName: toInputString(firstName || name?.split(" ")[0]),
+              lastName: toInputString(
+                lastName || name?.split(" ").slice(1).join(" ")
+              ),
+              contactNumber: toInputString(mobileNo),
+              altContactNumber: toInputString(alternateNo),
             };
 
             setUserData(updatedUserData);
@@ -1241,10 +1256,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   useEffect(() => {
     if (userRole === "CUSTOMER" && (firstName || lastName)) {
       const updatedUserData = {
-        firstName: firstName || userData.firstName || "",
-        lastName: lastName || userData.lastName || "",
-        contactNumber: mobileNo || userData.contactNumber || "",
-        altContactNumber: alternateNo || userData.altContactNumber || "",
+        firstName: toInputString(firstName || userData.firstName),
+        lastName: toInputString(lastName || userData.lastName),
+        contactNumber: toInputString(mobileNo || userData.contactNumber),
+        altContactNumber: toInputString(
+          alternateNo || userData.altContactNumber
+        ),
       };
 
       if (JSON.stringify(userData) !== JSON.stringify(updatedUserData)) {
@@ -1418,8 +1435,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   };
 
   const handleEditStart = () => {
+    const editableUserData: UserData = {
+      firstName: toInputString(userData.firstName),
+      lastName: toInputString(userData.lastName),
+      contactNumber: toInputString(userData.contactNumber),
+      altContactNumber: toInputString(userData.altContactNumber),
+    };
+
+    setUserData(editableUserData);
     setOriginalData({
-      userData: { ...userData },
+      userData: editableUserData,
       addresses: [...addresses],
     });
     setIsEditing(true);
@@ -3551,6 +3576,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
+  },
+  profileSection: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   greetingSkeleton: {
     width: 200,

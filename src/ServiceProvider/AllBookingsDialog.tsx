@@ -124,6 +124,46 @@ const formatBookingDateRange = (booking: Booking): string => {
   return booking.date || "Date TBD";
 };
 
+const getBookingAddress = (value: unknown): string => {
+  if (typeof value === "string") return value.trim();
+  if (!value || typeof value !== "object") return "";
+
+  const address = Array.isArray(value) ? value[0] : value;
+  if (!address || typeof address !== "object") return "";
+  const record = address as Record<string, unknown>;
+  const nested = Array.isArray(record.address) ? record.address[0] : record.address;
+  const nestedAddress =
+    nested && typeof nested === "object"
+      ? (nested as Record<string, unknown>)
+      : {};
+  const formatted =
+    record.formatted_address ??
+    nestedAddress.formatted_address ??
+    record.address;
+  if (typeof formatted === "string" && formatted.trim()) return formatted.trim();
+
+  const addressFields = [
+    "apartment",
+    "street",
+    "city",
+    "state",
+    "pincode",
+    "country",
+  ].some((key) => typeof nestedAddress[key] === "string")
+    ? nestedAddress
+    : record;
+  return [
+    addressFields.apartment,
+    addressFields.street,
+    addressFields.city,
+    addressFields.state,
+    addressFields.pincode,
+    addressFields.country,
+  ]
+    .filter((part): part is string => typeof part === "string" && !!part.trim())
+    .join(", ");
+};
+
 const handleCallCustomer = (phoneNumber: string, clientName: string) => {
   if (!phoneNumber || phoneNumber === "Contact info not available") {
     Alert.alert("No Contact Info", "Contact information is not available for this customer.");
@@ -244,7 +284,7 @@ export function AllBookingsDialog({
       childAge: null,
       customerName: clientName,
       serviceProviderName: "",
-      address: apiBooking.address || "",
+      address: getBookingAddress(apiBooking.address),
       taskStatus: apiBooking.task_status || apiBooking.taskStatus || "",
       modifiedBy: "",
       modifiedDate: "",
@@ -256,7 +296,7 @@ export function AllBookingsDialog({
       service: apiBooking.service_type || apiBooking.serviceType || "",
       date,
       time: timeRange,
-      location: apiBooking.address || "Address not available",
+      location: getBookingAddress(apiBooking.address) || "Address not available",
       status: apiBooking.task_status || apiBooking.taskStatus || "",
       amount,
       bookingData: {
@@ -496,12 +536,6 @@ export function AllBookingsDialog({
       taskStatusOriginal === "QUEUE_STANDBY" ||
       api.is_queue_standby === true ||
       api.queue_role === "backup";
-    const canWithdraw =
-      api.can_provider_withdraw === true &&
-      tab !== "past" &&
-      !isInProgress &&
-      !isCompleted;
-
     const isInProgress =
       !isQueueStandby &&
       (todayServiceStatus === "IN_PROGRESS" ||
@@ -511,6 +545,11 @@ export function AllBookingsDialog({
 
     const isCompleted =
       todayServiceStatus === "COMPLETED" || taskStatusOriginal === "COMPLETED";
+    const canWithdraw =
+      api.can_provider_withdraw === true &&
+      tab !== "past" &&
+      !isInProgress &&
+      !isCompleted;
     const isNotStarted =
       !isQueueStandby &&
       (todayServiceStatus === "SCHEDULED" || taskStatusOriginal === "NOT_STARTED");
@@ -528,7 +567,7 @@ export function AllBookingsDialog({
         <View style={styles.cardInner}>
           <View style={styles.cardTopRow}>
             <View style={styles.dateBadge}>
-              <MaterialIcon name="date-range" size={14} color={BRAND.accent} />
+              <MaterialIcon name="date-range" size={14} color={HOME_M3.primary} />
               <Text style={styles.dateBadgeText} numberOfLines={2}>
                 {formatBookingDateRange(booking)}
               </Text>
@@ -542,11 +581,11 @@ export function AllBookingsDialog({
 
           <View style={styles.metaRow}>
             <View style={styles.metaChip}>
-              <MaterialIcon name="receipt" size={12} color={BRAND.textMuted} />
+              <MaterialIcon name="receipt" size={12} color={HOME_M3.onSurfaceVariant} />
               <Text style={styles.metaChipText}>#{booking.id}</Text>
             </View>
             <View style={[styles.metaChip, styles.metaChipFlex]}>
-              <MaterialIcon name="build" size={12} color={BRAND.textMuted} />
+              <MaterialIcon name="build" size={12} color={HOME_M3.onSurfaceVariant} />
               <Text style={styles.metaChipText} numberOfLines={1}>
                 {getServiceTitle(booking.service)}
               </Text>
@@ -554,7 +593,7 @@ export function AllBookingsDialog({
           </View>
 
           <View style={styles.timeRow}>
-            <MaterialIcon name="schedule" size={14} color={BRAND.accent} />
+            <MaterialIcon name="schedule" size={14} color={HOME_M3.primary} />
             <Text style={styles.timeText}>{booking.time}</Text>
           </View>
 
@@ -577,7 +616,7 @@ export function AllBookingsDialog({
 
           {booking.location && booking.location !== "Address not available" ? (
             <View style={styles.addressRow}>
-              <MaterialIcon name="location-on" size={14} color={BRAND.textMuted} />
+              <MaterialIcon name="location-on" size={14} color={HOME_M3.onSurfaceVariant} />
               <Text style={styles.addressText} numberOfLines={2}>
                 {booking.location}
               </Text>
@@ -592,7 +631,7 @@ export function AllBookingsDialog({
                   handleCallCustomer(booking.bookingData.mobileno, booking.clientName)
                 }
               >
-                <MaterialIcon name="phone" size={16} color={BRAND.accent} />
+                <MaterialIcon name="phone" size={16} color={HOME_M3.primary} />
                 <Text style={styles.actionButtonText}>Call</Text>
               </TouchableOpacity>
             ) : null}
@@ -605,13 +644,13 @@ export function AllBookingsDialog({
                   setTrackAddressDialogOpen(true);
                 }}
               >
-                <MaterialIcon name="map" size={16} color={BRAND.accent} />
+                <MaterialIcon name="map" size={16} color={HOME_M3.primary} />
                 <Text style={styles.actionButtonText}>Map</Text>
               </TouchableOpacity>
             ) : null}
 
             {busy ? (
-              <ActivityIndicator size="small" color={BRAND.accent} style={styles.actionSpinner} />
+              <ActivityIndicator size="small" color={HOME_M3.primary} style={styles.actionSpinner} />
             ) : showCompleteButton ? (
               <TouchableOpacity
                 style={[styles.actionButton, styles.completeButton]}
@@ -637,7 +676,7 @@ export function AllBookingsDialog({
               </TouchableOpacity>
             ) : tab === "ongoing" && !isQueueStandby ? (
               <View style={styles.statusIdlePill}>
-                <MaterialIcon name="hourglass-empty" size={14} color={BRAND.textMuted} />
+                <MaterialIcon name="hourglass-empty" size={14} color={HOME_M3.onSurfaceVariant} />
                 <Text style={styles.statusIdleText}>Scheduled</Text>
               </View>
             ) : null}
@@ -697,7 +736,7 @@ export function AllBookingsDialog({
                     <MaterialIcon
                       name={icon}
                       size={15}
-                      color={active ? "#ffffff" : BRAND.textMuted}
+                      color={active ? HOME_M3.onSecondary : HOME_M3.onSurfaceVariant}
                     />
                     <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]}>
                       {label}
@@ -727,7 +766,7 @@ export function AllBookingsDialog({
                   <MaterialIcon
                     name="chevron-left"
                     size={22}
-                    color={canGoPrev() ? BRAND.accent : "#cbd5e1"}
+                    color={canGoPrev() ? HOME_M3.primary : HOME_M3.outlineVariant}
                   />
                 </TouchableOpacity>
                 <Text style={styles.monthLabel}>{selectedMonth.format("MMMM YYYY")}</Text>
@@ -739,25 +778,25 @@ export function AllBookingsDialog({
                   <MaterialIcon
                     name="chevron-right"
                     size={22}
-                    color={canGoNext() ? BRAND.accent : "#cbd5e1"}
+                    color={canGoNext() ? HOME_M3.primary : HOME_M3.outlineVariant}
                   />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.searchBox}>
-                <MaterialIcon name="search" size={18} color={BRAND.textMuted} />
+                <MaterialIcon name="search" size={18} color={HOME_M3.onSurfaceVariant} />
                 <TextInput
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   placeholder="Search client, service, or ID"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={HOME_M3.outline}
                   style={styles.searchInput}
                   returnKeyType="search"
                   clearButtonMode="while-editing"
                 />
                 {searchQuery.length > 0 ? (
                   <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={8}>
-                    <MaterialIcon name="close" size={18} color={BRAND.textMuted} />
+                    <MaterialIcon name="close" size={18} color={HOME_M3.onSurfaceVariant} />
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -779,8 +818,8 @@ export function AllBookingsDialog({
                 <RefreshControl
                   refreshing={refreshing}
                   onRefresh={() => loadMonthBookings(selectedMonth, true)}
-                  tintColor={BRAND.bookingSky}
-                  colors={[BRAND.bookingSky]}
+                  tintColor={HOME_M3.primary}
+                  colors={[HOME_M3.primary]}
                 />
               }
             >
@@ -800,7 +839,7 @@ export function AllBookingsDialog({
               ) : filteredBookings.length === 0 ? (
                 <View style={styles.emptyState}>
                   <View style={styles.emptyIconWrap}>
-                    <MaterialIcon name="event-busy" size={36} color={BRAND.textMuted} />
+                    <MaterialIcon name="event-busy" size={36} color={HOME_M3.onSurfaceVariant} />
                   </View>
                   <Text style={styles.emptyTitle}>No bookings found</Text>
                   <Text style={styles.emptyDescription}>{getEmptyStateMessage()}</Text>
@@ -943,7 +982,7 @@ const styles = StyleSheet.create({
   segmentLabel: {
     fontSize: 12,
     fontWeight: "600",
-    color: BRAND.textMuted,
+    color: HOME_M3.onSurfaceVariant,
   },
   segmentLabelActive: {
     color: "#ffffff",
@@ -953,7 +992,7 @@ const styles = StyleSheet.create({
     height: 20,
     paddingHorizontal: 5,
     borderRadius: 10,
-    backgroundColor: BRAND.surface,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -963,7 +1002,7 @@ const styles = StyleSheet.create({
   segmentCountText: {
     fontSize: 11,
     fontWeight: "700",
-    color: HOME_M3.secondary,
+    color: HOME_M3.onSecondaryContainer,
   },
   segmentCountTextActive: {
     color: "#ffffff",
@@ -1002,7 +1041,7 @@ const styles = StyleSheet.create({
   monthLabel: {
     fontSize: 15,
     fontWeight: "700",
-    color: BRAND.text,
+    color: HOME_M3.onSurface,
     letterSpacing: -0.2,
   },
   searchBox: {
@@ -1024,7 +1063,7 @@ const styles = StyleSheet.create({
   },
   resultsHint: {
     fontSize: 12,
-    color: BRAND.textMuted,
+    color: HOME_M3.onSurfaceVariant,
     fontWeight: "500",
   },
   list: {
@@ -1039,15 +1078,15 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   skeletonCard: {
-    backgroundColor: BRAND.surface,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
   },
   skeletonBar: {
     height: 3,
-    backgroundColor: BRAND.line,
+    backgroundColor: HOME_M3.outlineVariant,
   },
   skeletonBody: {
     padding: 16,
@@ -1057,19 +1096,19 @@ const styles = StyleSheet.create({
     height: 14,
     width: "70%",
     borderRadius: 4,
-    backgroundColor: BRAND.line,
+    backgroundColor: HOME_M3.outlineVariant,
   },
   skeletonLine: {
     height: 12,
     width: "100%",
     borderRadius: 4,
-    backgroundColor: BRAND.line,
+    backgroundColor: HOME_M3.outlineVariant,
   },
   skeletonLineShort: {
     height: 12,
     width: "45%",
     borderRadius: 4,
-    backgroundColor: BRAND.line,
+    backgroundColor: HOME_M3.outlineVariant,
   },
   emptyState: {
     alignItems: "center",
@@ -1080,7 +1119,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: BRAND.accentSoft,
+    backgroundColor: HOME_M3.secondaryContainer,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 14,
@@ -1088,12 +1127,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: BRAND.text,
+    color: HOME_M3.onSurface,
     marginBottom: 6,
   },
   emptyDescription: {
     fontSize: 14,
-    color: BRAND.textMuted,
+    color: HOME_M3.onSurfaceVariant,
     textAlign: "center",
     lineHeight: 20,
   },
@@ -1102,14 +1141,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: BRAND.accentSoft,
+    backgroundColor: HOME_M3.secondaryContainer,
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
   },
   clearSearchText: {
     fontSize: 13,
     fontWeight: "600",
-    color: BRAND.accent,
+    color: HOME_M3.onSecondaryContainer,
   },
   bookingCard: {
     backgroundColor: HOME_M3.surfaceContainerLowest,
@@ -1145,7 +1184,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: BRAND.accentSoft,
+    backgroundColor: HOME_M3.secondaryContainer,
     flexShrink: 1,
     marginRight: 8,
   },
@@ -1153,11 +1192,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: "600",
-    color: BRAND.accent,
+    color: HOME_M3.onSecondaryContainer,
     lineHeight: 16,
   },
   amountPill: {
-    backgroundColor: "#ecfdf5",
+    backgroundColor: HOME_M3.secondaryContainer,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
@@ -1165,12 +1204,12 @@ const styles = StyleSheet.create({
   amountPillText: {
     fontSize: 14,
     fontWeight: "800",
-    color: "#0f766e",
+    color: HOME_M3.onSecondaryContainer,
   },
   clientName: {
     fontSize: 17,
     fontWeight: "700",
-    color: BRAND.text,
+    color: HOME_M3.onSurface,
     marginBottom: 8,
     letterSpacing: -0.2,
   },
@@ -1184,12 +1223,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: BRAND.canvas,
+    backgroundColor: HOME_M3.surfaceContainerLow,
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
   },
   metaChipFlex: {
     flex: 1,
@@ -1197,7 +1236,7 @@ const styles = StyleSheet.create({
   },
   metaChipText: {
     fontSize: 12,
-    color: BRAND.textMuted,
+    color: HOME_M3.onSurfaceVariant,
     fontWeight: "500",
     flexShrink: 1,
   },
@@ -1210,7 +1249,7 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 13,
     fontWeight: "600",
-    color: BRAND.text,
+    color: HOME_M3.onSurface,
   },
   badgeRow: {
     flexDirection: "row",
@@ -1225,15 +1264,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: BRAND.canvas,
+    backgroundColor: HOME_M3.surfaceContainerLow,
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
   },
   addressText: {
     flex: 1,
     fontSize: 12,
     lineHeight: 17,
-    color: BRAND.textMuted,
+    color: HOME_M3.onSurfaceVariant,
   },
   actionRow: {
     flexDirection: "row",
@@ -1241,7 +1280,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: BRAND.line,
+    borderTopColor: HOME_M3.outlineVariant,
   },
   actionButton: {
     flexDirection: "row",
@@ -1252,14 +1291,14 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: BRAND.line,
-    backgroundColor: BRAND.canvas,
+    borderColor: HOME_M3.outlineVariant,
+    backgroundColor: HOME_M3.surfaceContainerLow,
     minWidth: 72,
   },
   actionButtonText: {
     fontSize: 13,
     fontWeight: "600",
-    color: BRAND.textMuted,
+    color: HOME_M3.onSurfaceVariant,
   },
   actionButtonTextLight: {
     color: "#ffffff",
@@ -1268,8 +1307,8 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   startButton: {
-    backgroundColor: BRAND.accent,
-    borderColor: BRAND.accent,
+    backgroundColor: HOME_M3.primary,
+    borderColor: HOME_M3.primary,
   },
   completeButton: {
     backgroundColor: "#ef4444",
@@ -1300,7 +1339,7 @@ const styles = StyleSheet.create({
   standbyHint: {
     fontSize: 12,
     lineHeight: 17,
-    color: BRAND.textMuted,
+    color: HOME_M3.onSurfaceVariant,
     marginBottom: 8,
     paddingHorizontal: 2,
   },
@@ -1327,13 +1366,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 10,
-    backgroundColor: BRAND.canvas,
+    backgroundColor: HOME_M3.surfaceContainerLow,
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
   },
   statusIdleText: {
     fontSize: 13,
     fontWeight: "500",
-    color: BRAND.textMuted,
+    color: HOME_M3.onSurfaceVariant,
   },
 });

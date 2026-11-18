@@ -46,7 +46,6 @@ import {
 import { HOME_HERO_GRADIENT } from "../theme/brandColors";
 import { buildQuoteBreakdown, type QuoteBreakdownRow } from "../utils/quoteBreakdown";
 import {
-  appendPaymentFeeRows,
   computeCheckoutWithWallet,
   computePaymentTotals,
 } from "../utils/paymentTotals";
@@ -1055,7 +1054,6 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
             <PriceBreakdown
               rows={displayBreakdown}
               loading={quotePreview.loading}
-              paymentTotals={paymentTotals}
               walletApplied={walletSplit.wallet_applied}
               amountPayable={walletSplit.razorpay_amount}
               walletAppliedLabel={t("wallet.checkout.walletAppliedLabel")}

@@ -31,7 +31,7 @@ interface Location {
 interface TrackAddressProps {
   onClose: () => void;
   googleMapsApiKey?: string;
-  destinationAddress?: string;
+  destinationAddress?: unknown;
 }
 
 function parseLatLngFromText(value: string): Location | null {
@@ -45,6 +45,90 @@ function parseLatLngFromText(value: string): Location | null {
   if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
 
   return { latitude, longitude };
+}
+
+function getCoordinate(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getDestinationInput(value: unknown): {
+  address: string;
+  coordinates: Location | null;
+} {
+  if (typeof value === 'string') {
+    const address = value.trim();
+    return {
+      address,
+      coordinates: parseLatLngFromText(address),
+    };
+  }
+  if (!value || typeof value !== 'object') {
+    return { address: '', coordinates: null };
+  }
+
+  const record = value as Record<string, unknown>;
+  const geometry = record.geometry as
+    | { location?: Record<string, unknown> }
+    | undefined;
+  const nestedAddress = Array.isArray(record.address)
+    ? record.address[0]
+    : record.address;
+  const nestedRecord =
+    nestedAddress && typeof nestedAddress === 'object'
+      ? (nestedAddress as Record<string, unknown>)
+      : {};
+  const geometryLocation = geometry?.location;
+  const nestedGeometry = nestedRecord.geometry as
+    | { location?: Record<string, unknown> }
+    | undefined;
+  const coordinateSource =
+    geometryLocation || nestedGeometry?.location || record;
+  const latitude = getCoordinate(
+    coordinateSource.lat ?? coordinateSource.latitude
+  );
+  const longitude = getCoordinate(
+    coordinateSource.lng ?? coordinateSource.longitude
+  );
+  const coordinates =
+    latitude != null &&
+    longitude != null &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
+      ? { latitude, longitude }
+      : null;
+  const formattedAddress =
+    record.formatted_address ??
+    nestedRecord.formatted_address ??
+    (typeof record.address === 'string' ? record.address : '');
+  const addressFields = [
+    'apartment',
+    'street',
+    'city',
+    'state',
+    'pincode',
+    'country',
+  ].some((key) => typeof nestedRecord[key] === 'string')
+    ? nestedRecord
+    : record;
+  const address =
+    typeof formattedAddress === 'string' && formattedAddress.trim()
+      ? formattedAddress.trim()
+      : [
+          addressFields.apartment,
+          addressFields.street,
+          addressFields.city,
+          addressFields.state,
+          addressFields.pincode,
+          addressFields.country,
+        ]
+          .filter((part): part is string => typeof part === 'string' && !!part.trim())
+          .join(', ');
+
+  return { address, coordinates };
 }
 
 function decodePolyline(encoded: string): Location[] {
@@ -125,17 +209,20 @@ const TrackAddress: React.FC<TrackAddressProps> = ({
   // Resolve destination from coordinates or geocoded address.
   useEffect(() => {
     const resolveDestination = async () => {
-      if (!destinationAddress?.trim()) {
+      const input = getDestinationInput(destinationAddress);
+      if (!input.address && !input.coordinates) {
         Alert.alert('Error', 'No destination address provided');
         onClose();
         return;
       }
 
-      const trimmed = destinationAddress.trim();
-      const coordinateDestination = parseLatLngFromText(trimmed);
+      const trimmed = input.address;
+      const coordinateDestination = input.coordinates;
       if (coordinateDestination) {
         setDestination(coordinateDestination);
-        setDestinationAddressText(trimmed);
+        setDestinationAddressText(
+          trimmed || `${coordinateDestination.latitude}, ${coordinateDestination.longitude}`
+        );
         return;
       }
 

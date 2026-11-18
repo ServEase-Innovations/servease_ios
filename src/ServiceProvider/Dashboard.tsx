@@ -15,7 +15,6 @@ import {
   StatusBar,
 } from 'react-native';
 import { Text } from '../theme/BrandTypography';
-import LinearGradient from 'react-native-linear-gradient';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Snackbar from 'react-native-snackbar';
 import TodayVisitsCard, { TodayBookingSlot } from './TodayVisitsCard';
@@ -27,7 +26,7 @@ import axios, { AxiosResponse } from 'axios';
 import PaymentInstance from '../services/paymentInstance';
 import providerInstance from '../services/providerInstance';
 import { useAppUser } from '../context/AppUserContext';
-import { BRAND, HOME_HERO_GRADIENT, HOME_M3 } from '../theme/brandColors';
+import { BRAND, HOME_M3, HOME_PAGE_GRADIENT } from '../theme/brandColors';
 import HomeHeroChrome from '../HomePage/HomeHeroChrome';
 import { OtpVerificationDialog } from './OtpVerificationDialog';
 import WithdrawalDialog from './WithdrawalDialog';
@@ -224,7 +223,7 @@ export default function Dashboard({ onBackToHome, onLogoPress, closeDropdowns = 
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   
   const [trackAddressDialogOpen, setTrackAddressDialogOpen] = useState(false);
-  const [selectedAddress, setSelectedAddress] = useState("");
+  const [selectedAddress, setSelectedAddress] = useState<unknown>("");
   const [todaySchedule, setTodaySchedule] = useState<TodayBookingSlot[]>([]);
   const [providerDisplayName, setProviderDisplayName] = useState("");
 
@@ -358,8 +357,12 @@ export default function Dashboard({ onBackToHome, onLogoPress, closeDropdowns = 
     (bookings?.upcoming?.length ?? 0) +
     (bookings?.past?.length ?? 0);
 
-  const handleTrackAddress = (address: string) => {
-    if (!address || address === "Address not available") {
+  const handleTrackAddress = (address: unknown) => {
+    if (
+      !address ||
+      (typeof address === "string" &&
+        address.trim().toLowerCase() === "address not available")
+    ) {
       Alert.alert("No Address", "Address is not provided for this booking.");
       return;
     }
@@ -571,6 +574,32 @@ export default function Dashboard({ onBackToHome, onLogoPress, closeDropdowns = 
         translucent
         backgroundColor="transparent"
       />
+
+      <HomeHeroChrome
+        homeLocationCard
+        closeDropdowns={closeDropdowns}
+        onLogoPress={onLogoPress}
+        topPadding={8}
+        gradientColors={HOME_PAGE_GRADIENT}
+      >
+        <Animated.View
+          style={[
+            styles.heroGreetingCard,
+            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+          ]}
+        >
+          <View style={styles.heroAvatar}>
+            <MaterialIcon name="person" size={28} color={BRAND.accentDark} />
+          </View>
+          <View style={styles.heroGreetingText}>
+            <Text style={styles.heroEyebrow}>Namaste,</Text>
+            <Text style={styles.heroPageTitle} numberOfLines={2}>
+              {providerDisplayName || "Guest"}
+            </Text>
+            <Text style={styles.heroSubtitle}>Your service dashboard</Text>
+          </View>
+        </Animated.View>
+      </HomeHeroChrome>
       
       <ScrollView
         refreshControl={
@@ -585,33 +614,6 @@ export default function Dashboard({ onBackToHome, onLogoPress, closeDropdowns = 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <LinearGradient
-          colors={[...HOME_HERO_GRADIENT]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.heroGradient}
-        >
-          <HomeHeroChrome closeDropdowns={closeDropdowns} onLogoPress={onLogoPress} />
-
-          <Animated.View
-            style={[
-              styles.heroGreetingCard,
-              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-            ]}
-          >
-            <View style={styles.heroAvatar}>
-              <MaterialIcon name="person" size={28} color={BRAND.accentDark} />
-            </View>
-            <View style={styles.heroGreetingText}>
-              <Text style={styles.heroEyebrow}>Namaste,</Text>
-              <Text style={styles.heroPageTitle} numberOfLines={2}>
-                {providerDisplayName || "Guest"}
-              </Text>
-              <Text style={styles.heroSubtitle}>Your service dashboard</Text>
-            </View>
-          </Animated.View>
-        </LinearGradient>
-
         <View style={styles.contentSheet}>
           <TodayVisitsCard
             loading={loading}
@@ -763,10 +765,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 100,
   },
-  heroGradient: {
-    paddingBottom: 36,
-    overflow: "visible",
-  },
   heroGreetingCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -810,7 +808,6 @@ const styles = StyleSheet.create({
     backgroundColor: HOME_M3.surface,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    marginTop: -18,
     paddingTop: 24,
     paddingHorizontal: 20,
     paddingBottom: 24,

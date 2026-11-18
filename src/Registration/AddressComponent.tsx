@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, {
+  forwardRef,
+  useImperativeHandle,
+  useState,
+  useEffect,
+  useRef,
+} from 'react';
 import {
   View,
   TouchableOpacity,
@@ -8,10 +14,19 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Linking,
+  Platform,
 } from 'react-native';
 import { Text, TextInput } from '../theme/BrandTypography';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import axios from 'axios';
+import Geolocation from '@react-native-community/geolocation';
+import { check, PERMISSIONS, request, RESULTS } from 'react-native-permissions';
+import { keys } from '../env';
+import {
+  formatServiceAddressFromGeoLocation,
+  resolveLocationCoords,
+} from '../utils/bookingLocation';
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { useTranslation } from 'react-i18next';
 import { registrationKeyboardInputProps } from "../common/RegistrationKeyboardAccessory";
@@ -26,7 +41,11 @@ export interface AddressData {
 }
 
 interface AddressComponentProps {
-  onAddressChange: (type: 'permanent' | 'correspondence', data: AddressData) => void;
+  onAddressChange: (
+    type: 'permanent' | 'correspondence',
+    data: AddressData,
+    options?: { source: 'location' }
+  ) => void;
   permanentAddress: AddressData;
   correspondenceAddress: AddressData;
   errors?: {
@@ -37,13 +56,27 @@ interface AddressComponentProps {
   isSameAddress?: boolean;
   onScrollInputIntoView?: (fieldRef: View | null) => void;
   locationSection?: {
-    onFetchLocation: () => void;
     onSelectFromMap: () => void;
-    locationLoading: boolean;
+    location: unknown;
+    onLocationResolved: (location: {
+      latitude: number;
+      longitude: number;
+      address: string;
+    }) => void;
     detectedAddress?: string;
     hasCoordinates: boolean;
     savedAddressPreview?: string;
   };
+}
+
+export interface AddressComponentHandle {
+  applySelectedLocation: (location: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+    addressComponents?: unknown[];
+    copyToCorrespondence?: boolean;
+  }) => Promise<void>;
 }
 
 interface Country {
@@ -138,7 +171,7 @@ class CountryStateService {
 
 const countryStateService = new CountryStateService();
 
-const AddressComponent: React.FC<AddressComponentProps> = ({
+const AddressComponent = forwardRef<AddressComponentHandle, AddressComponentProps>(({
   onAddressChange,
   permanentAddress,
   correspondenceAddress,
@@ -147,7 +180,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
   isSameAddress: externalIsSameAddress,
   onScrollInputIntoView,
   locationSection,
-}) => {
+}, ref) => {
   const { colors, fontSize, isDarkMode } = useTheme();
   const { t } = useTranslation();
   const [internalIsSameAddress, setInternalIsSameAddress] = useState(false);
@@ -171,6 +204,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
   const [countrySearch, setCountrySearch] = useState('');
   const [permanentStateSearch, setPermanentStateSearch] = useState('');
   const [correspondenceStateSearch, setCorrespondenceStateSearch] = useState('');
+  const [locationLoading, setLocationLoading] = useState(false);
 
   const apartmentRef = useRef<View>(null);
   const streetRef = useRef<View>(null);
@@ -234,6 +268,341 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
   };
 
   const permanentFilledCount = countFilledFields(permanentAddress);
+
+  const parseAddressComponents = (components: unknown[]) => {
+    const parsed: AddressData = {
+      apartment: '',
+      street: '',
+      city: '',
+      state: '',
+      country: '',
+      pincode: '',
+    };
+    const priority = { street: 0, city: 0 };
+    let premise = '';
+    let subpremise = '';
+    let streetNumber = '';
+    let route = '';
+
+    components.forEach((value) => {
+      if (!value || typeof value !== 'object') return;
+      const component = value as {
+        long_name?: string;
+        short_name?: string;
+        types?: string[];
+      };
+      const types = Array.isArray(component.types) ? component.types : [];
+      const name = String(component.long_name || component.short_name || '').trim();
+      if (!name) return;
+
+      if (types.includes('premise')) premise = name;
+      if (types.includes('subpremise')) subpremise = name;
+      if (types.includes('street_number')) streetNumber = name;
+      if (types.includes('route')) route = name;
+
+      const streetPriority = types.includes('neighborhood')
+        ? 3
+        : types.some((type) =>
+            type === 'sublocality' || /^sublocality_level_[1-5]$/.test(type)
+          )
+          ? 2
+          : 0;
+      if (streetPriority > priority.street) {
+        priority.street = streetPriority;
+        parsed.street = name;
+      }
+
+      const cityPriority = types.includes('locality')
+        ? 4
+        : types.includes('postal_town')
+          ? 3
+          : types.includes('administrative_area_level_2')
+            ? 2
+            : types.includes('administrative_area_level_3')
+              ? 1
+              : 0;
+      if (cityPriority > priority.city) {
+        priority.city = cityPriority;
+        parsed.city = name;
+      }
+      if (!parsed.state && types.includes('administrative_area_level_1')) {
+        parsed.state = name;
+      }
+      if (!parsed.country && types.includes('country')) {
+        parsed.country = name;
+      }
+      if (!parsed.pincode && types.includes('postal_code')) {
+        const postalCode = name.replace(/\D/g, '');
+        if (postalCode.length === 6) parsed.pincode = postalCode;
+      }
+    });
+
+    parsed.apartment = [premise, subpremise].filter(Boolean).join(', ');
+    if (route) {
+      parsed.street = [streetNumber, route].filter(Boolean).join(' ');
+    } else if (streetNumber && !parsed.street) {
+      parsed.street = streetNumber;
+    }
+    return parsed;
+  };
+
+  const reverseGeocode = async (latitude: number, longitude: number) => {
+    let googleAddress = '';
+    let googleComponents: unknown[] = [];
+
+    try {
+      const response = await axios.get(
+        'https://maps.googleapis.com/maps/api/geocode/json',
+        {
+          params: {
+            latlng: `${latitude},${longitude}`,
+            key: keys.api_key,
+            language: 'en',
+          },
+          timeout: 10000,
+        }
+      );
+      const results = response.data?.results as Array<{
+        formatted_address?: string;
+        address_components?: unknown[];
+      }> | undefined;
+      if (response.data?.status === 'OK' && results?.length) {
+        googleAddress = String(results[0].formatted_address || '');
+        googleComponents = results.flatMap((result) =>
+          Array.isArray(result.address_components) ? result.address_components : []
+        );
+        const parsed = parseAddressComponents(googleComponents);
+        if (
+          parsed.street &&
+          parsed.city &&
+          parsed.state &&
+          parsed.country &&
+          parsed.pincode
+        ) {
+          return { address: googleAddress, components: googleComponents };
+        }
+      }
+    } catch (error) {
+      console.error('Google reverse geocoding failed:', error);
+    }
+
+    const response = await axios.get(
+      'https://nominatim.openstreetmap.org/reverse',
+      {
+        params: {
+          lat: latitude,
+          lon: longitude,
+          format: 'jsonv2',
+          addressdetails: 1,
+        },
+        headers: {
+          'User-Agent': 'ServeasoApp',
+          'Accept-Language': 'en',
+        },
+        timeout: 10000,
+      }
+    );
+    const address = response.data?.address as
+      | Record<string, unknown>
+      | undefined;
+    if (!address) {
+      throw new Error('Reverse geocoding returned no structured address');
+    }
+
+    const component = (name: unknown, type: string) =>
+      typeof name === 'string' && name.trim()
+        ? [{ long_name: name.trim(), types: [type] }]
+        : [];
+    const streetName =
+      address.road ??
+      address.residential ??
+      address.pedestrian ??
+      address.footway ??
+      address.cycleway;
+    const city =
+      address.city ??
+      address.town ??
+      address.village ??
+      address.municipality;
+    const streetNumber = address.house_number;
+    const osmComponents = [
+      ...component(streetNumber, 'street_number'),
+      ...component(streetName, 'route'),
+      ...component(address.neighbourhood ?? address.suburb, 'neighborhood'),
+      ...component(city, 'locality'),
+      ...component(address.state, 'administrative_area_level_1'),
+      ...component(address.country, 'country'),
+      ...component(address.postcode, 'postal_code'),
+    ];
+
+    return {
+      address: String(response.data?.display_name || googleAddress),
+      components: [...googleComponents, ...osmComponents],
+    };
+  };
+
+  const applySelectedLocation = async (location: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+    addressComponents?: unknown[];
+    copyToCorrespondence?: boolean;
+  }) => {
+    let address = String(location.address || '').trim();
+    let components = Array.isArray(location.addressComponents)
+      ? location.addressComponents
+      : [];
+    let parsedAddress = parseAddressComponents(components);
+
+    if (
+      !parsedAddress.street ||
+      !parsedAddress.city ||
+      !parsedAddress.country ||
+      !parsedAddress.state ||
+      !parsedAddress.pincode
+    ) {
+      try {
+        const geocoded = await reverseGeocode(
+          location.latitude,
+          location.longitude
+        );
+        address = geocoded.address || address;
+        components = [...components, ...geocoded.components];
+        parsedAddress = parseAddressComponents(components);
+      } catch (error) {
+        console.error('Address reverse-geocoding error:', error);
+      }
+    }
+
+    const nextPermanentAddress: AddressData = {
+      apartment: parsedAddress.apartment,
+      street: parsedAddress.street,
+      city: parsedAddress.city,
+      state: parsedAddress.state,
+      country: parsedAddress.country,
+      pincode: parsedAddress.pincode,
+    };
+    const copyToCorrespondence =
+      location.copyToCorrespondence ?? isSameAddress;
+
+    onAddressChange('permanent', nextPermanentAddress, { source: 'location' });
+    if (copyToCorrespondence) {
+      onAddressChange(
+        'correspondence',
+        { ...nextPermanentAddress },
+        { source: 'location' }
+      );
+      if (!isSameAddress) onSameAddressToggle?.(true);
+    }
+
+    const locationLabel =
+      address ||
+      `Map location (${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)})`;
+    locationSection?.onLocationResolved({
+      latitude: location.latitude,
+      longitude: location.longitude,
+      address: locationLabel,
+    });
+
+    const missingFields = (
+      [
+        ['street', nextPermanentAddress.street],
+        ['city', nextPermanentAddress.city],
+        ['country', nextPermanentAddress.country],
+        ['state', nextPermanentAddress.state],
+        ['pincode', nextPermanentAddress.pincode],
+      ] as const
+    )
+      .filter(([, value]) => !value)
+      .map(([field]) => field);
+    if (missingFields.length) {
+      Alert.alert(
+        'Location applied',
+        `Please complete the missing address details: ${missingFields.join(', ')}.`
+      );
+    }
+  };
+
+  useImperativeHandle(ref, () => ({ applySelectedLocation }));
+
+  const requestLocationPermission = async () => {
+    if (Platform.OS === 'android') {
+      let status = await check(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
+      if (status !== RESULTS.GRANTED) {
+        status = await request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
+      }
+      return status === RESULTS.GRANTED;
+    }
+    if (Platform.OS === 'ios') {
+      let status = await check(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+      if (status !== RESULTS.GRANTED && status !== RESULTS.LIMITED) {
+        status = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+      }
+      return status === RESULTS.GRANTED || status === RESULTS.LIMITED;
+    }
+    return false;
+  };
+
+  const handleFetchLocation = async () => {
+    if (!locationSection) return;
+    setLocationLoading(true);
+    try {
+      let coordinates = resolveLocationCoords(locationSection.location);
+      let address = formatServiceAddressFromGeoLocation(locationSection.location);
+      const record =
+        locationSection.location && typeof locationSection.location === 'object'
+          ? (locationSection.location as Record<string, unknown>)
+          : {};
+      const rawAddress = Array.isArray(record.address)
+        ? record.address[0]
+        : record.address;
+      const addressComponents =
+        rawAddress && typeof rawAddress === 'object'
+          ? (rawAddress as Record<string, unknown>).address_components
+          : record.address_components;
+      let components = Array.isArray(addressComponents) ? addressComponents : [];
+
+      if (!coordinates) {
+        if (!(await requestLocationPermission())) {
+          Alert.alert(
+            'Permission Required',
+            'Location permission is required to fetch your current location.',
+            [
+              { text: 'Open Settings', onPress: () => Linking.openSettings() },
+              { text: 'Cancel', style: 'cancel' },
+            ]
+          );
+          return;
+        }
+
+        coordinates = await new Promise<{ lat: number; lng: number }>(
+          (resolve, reject) => {
+            Geolocation.getCurrentPosition(
+              ({ coords }) =>
+                resolve({ lat: coords.latitude, lng: coords.longitude }),
+              reject,
+              { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 }
+            );
+          }
+        );
+      }
+
+      await applySelectedLocation({
+        latitude: coordinates.lat,
+        longitude: coordinates.lng,
+        address,
+        addressComponents: components,
+      });
+    } catch (error) {
+      console.error('Current location fetch failed:', error);
+      Alert.alert(
+        'Location unavailable',
+        'Unable to fetch your location. Please check your GPS settings and try again.'
+      );
+    } finally {
+      setLocationLoading(false);
+    }
+  };
 
   const handleStatePress = (type: 'permanent' | 'correspondence') => {
     const country =
@@ -608,14 +977,14 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
                   borderColor: colors.primary,
                   backgroundColor: colors.infoLight,
                 },
-                locationSection.locationLoading && styles.buttonDisabled,
+                locationLoading && styles.buttonDisabled,
               ]}
-              onPress={locationSection.onFetchLocation}
-              disabled={locationSection.locationLoading}
+              onPress={handleFetchLocation}
+              disabled={locationLoading}
               activeOpacity={0.7}
             >
               <View style={[styles.locationActionIcon, { backgroundColor: colors.primary }]}>
-                {locationSection.locationLoading ? (
+                {locationLoading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Icon name="my-location" size={20} color="#fff" />
@@ -629,7 +998,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
               >
                 {t('registration.address.currentLocation', { defaultValue: 'Current Location' })}
               </Text>
-              {!locationSection.locationLoading ? (
+              {!locationLoading ? (
                 <Icon name="chevron-right" size={22} color={colors.textSecondary} />
               ) : null}
             </TouchableOpacity>
@@ -641,10 +1010,10 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
                   borderColor: colors.border,
                   backgroundColor: colors.surface,
                 },
-                locationSection.locationLoading && styles.buttonDisabled,
+                locationLoading && styles.buttonDisabled,
               ]}
               onPress={locationSection.onSelectFromMap}
-              disabled={locationSection.locationLoading}
+              disabled={locationLoading}
               activeOpacity={0.7}
             >
               <View style={[styles.locationActionIcon, { backgroundColor: colors.card }]}>
@@ -955,7 +1324,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
       )}
     </View>
   );
-};
+});
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
