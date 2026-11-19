@@ -337,6 +337,7 @@ jobs:
           ls -la "${EXPORT_PATH}"
 
       - name: Upload to TestFlight
+        continue-on-error: true
         env:
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
           APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
