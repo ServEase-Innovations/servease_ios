@@ -128,16 +128,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Select Xcode 16
+      - name: Select Xcode 26
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.1'
+          xcode-version: '26.6.0'
 
       - name: Verify iOS SDK
         run: |
           set -euo pipefail
           sudo xcodebuild -runFirstLaunch || true
-          # Warm CoreSimulator
+          # Warm CoreSimulator; -downloadPlatform iOS is flaky on macos-latest (exit 70).
           xcrun simctl list > /dev/null 2>&1 || true
           echo "--- Available SDKs ---"
           xcodebuild -showsdks
@@ -204,7 +204,7 @@ jobs:
           cd ios
           pod install --repo-update
 
-      - name: Verify Xcode 16 pod patches
+      - name: Verify Xcode 26 pod patches
         run: |
           set -euo pipefail
           FMT_BASE="ios/Pods/fmt/include/fmt/base.h"
@@ -212,15 +212,15 @@ jobs:
             echo "fmt/base.h not found after pod install"
             exit 1
           fi
-          if ! grep -q "Xcode 16 workaround" "${FMT_BASE}"; then
-            echo "fmt/base.h was not patched for Xcode 16"
+          if ! grep -q "Xcode 26 workaround" "${FMT_BASE}"; then
+            echo "fmt/base.h was not patched for Xcode 26"
             exit 1
           fi
           if ! grep -q "#define FMT_USE_CONSTEVAL 0" "${FMT_BASE}"; then
             echo "fmt/base.h does not force FMT_USE_CONSTEVAL=0"
             exit 1
           fi
-          echo "fmt Xcode 16 patch verified"
+          echo "fmt Xcode 26 patch verified"
 
       - name: Install iOS code signing assets
         env:
