@@ -337,7 +337,6 @@ jobs:
           ls -la "${EXPORT_PATH}"
 
       - name: Upload to TestFlight
-        continue-on-error: true  # Don't fail if TestFlight upload fails
         env:
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
           APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
@@ -346,7 +345,7 @@ jobs:
           TZ: UTC
         run: |
           chmod +x ios/scripts/ci-upload-testflight.sh
-          ios/scripts/ci-upload-testflight.sh "${IPA_PATH}" || echo "TestFlight upload skipped (app may not exist in App Store Connect yet)"
+          ios/scripts/ci-upload-testflight.sh "${IPA_PATH}"
 
       - name: Distribute build to TestFlight testers
         continue-on-error: true  # Don't fail if distribution fails
