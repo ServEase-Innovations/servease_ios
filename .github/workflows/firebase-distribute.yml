@@ -116,7 +116,7 @@ jobs:
 
   ios-testflight:
     if: github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both'
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 120
     env:
       # Sentry is disabled in CI to prevent upload failures from blocking builds
