@@ -24,6 +24,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import moment from 'moment';
 import { ServiceProviderDTO } from '../types/ProviderDetailsType';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import BottomSheetScaffold from '../design-system/BottomSheetScaffold';
 import LinearGradient from 'react-native-linear-gradient';
@@ -49,6 +50,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
 }) => {
   const { t } = useTranslation();
   const { colors, isDarkMode, fontSize } = useTheme();
+  const insets = useSafeAreaInsets();
   
   const [previousBookingExpanded, setPreviousBookingExpanded] = useState(false);
   const [scheduleExceptionsExpanded, setScheduleExceptionsExpanded] = useState(false);
@@ -743,11 +745,17 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
         onRequestClose={handleSheetClose}
         animationType="slide"
         transparent
+        presentationStyle="overFullScreen"
         style={styles.modal}
       >
         <PaperProvider>
           <View style={styles.backdrop}>
-            <Animated.View style={{ transform: [{ translateY: sheetTranslateY }] }}>
+            <Animated.View
+              style={[
+                styles.sheetWrapper,
+                { transform: [{ translateY: sheetTranslateY }] },
+              ]}
+            >
               <BottomSheetScaffold
                 backgroundColor={colors.background}
                 borderColor={colors.border}
@@ -762,7 +770,16 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
               >
                 {renderTabContent()}
               </ScrollView>
-              <View style={[styles.footerBar, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
+              <View
+                style={[
+                  styles.footerBar,
+                  {
+                    borderTopColor: colors.border,
+                    backgroundColor: colors.card,
+                    paddingBottom: Math.max(insets.bottom, 16),
+                  },
+                ]}
+              >
                 <TouchableOpacity
                   style={[styles.footerGhostButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
                   onPress={handleSheetClose}
@@ -795,7 +812,12 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(2, 6, 23, 0.42)',
   },
+  sheetWrapper: {
+    width: '100%',
+  },
   container: {
+    width: '100%',
+    alignSelf: 'stretch',
     minHeight: '70%',
     maxHeight: '92%',
     borderTopLeftRadius: 28,
@@ -803,6 +825,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   profileHeader: {
+    width: '100%',
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 20,
@@ -906,9 +929,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   content: {
-    flexGrow: 0,
+    flex: 1,
+    minHeight: 0,
   },
   contentContainer: {
+    flexGrow: 1,
     padding: 16,
     paddingBottom: 24,
   },

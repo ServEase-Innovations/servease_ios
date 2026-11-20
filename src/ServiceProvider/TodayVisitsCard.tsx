@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 2,
-    backgroundColor: BRAND.bookingNavy,
+    backgroundColor: BRAND.accent,
     borderRadius: 12,
     paddingVertical: 12,
     minHeight: 44,

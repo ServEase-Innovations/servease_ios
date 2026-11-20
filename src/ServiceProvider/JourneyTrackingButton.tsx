@@ -205,7 +205,7 @@ export default function JourneyTrackingButton({ engagementId, onStatusChange }: 
           description="This will enable customer tracking so they can see your location in real-time. Continue?"
           icon="navigation"
           confirmText="Start Journey"
-          confirmColor="#3b82f6"
+          confirmColor={BRAND.accent}
           loading={loading}
         />
 
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#3b82f6',
+    backgroundColor: BRAND.accent,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,

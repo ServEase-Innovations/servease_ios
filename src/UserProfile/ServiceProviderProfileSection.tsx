@@ -18,6 +18,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import providerInstance from "../services/providerInstance";
 import { ProfileContentSkeleton } from "../common/ProfileContentSkeleton";
 import TimeSlotSelector from "../common/TimeSlotSelector/TimeSlotSelector";
+import { parseProviderTimeSlots } from "./serviceProviderTimeSlots";
 
 const { height } = Dimensions.get('window');
 
@@ -253,14 +254,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     return `${paddedHour}:${paddedMinute}`;
   };
 
-  const parseTimeToNumber = (timeStr: string): number => {
-    const [time, period] = timeStr.trim().split(' ');
-    let [hour, minute] = time.split(':').map(Number);
-    if (period === 'PM' && hour !== 12) hour += 12;
-    if (period === 'AM' && hour === 12) hour = 0;
-    return hour + (minute / 60);
-  };
-
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
   // New function to get merged time slots array
@@ -403,36 +396,13 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         }
       }
 
-      let morning: TimeSlot[] = [];
-      let evening: TimeSlot[] = [];
-      if (data.timeslot) {
-        const slots = data.timeslot.split(',').map((slot: string) => slot.trim());
-        
-        slots.forEach((slot: string) => {
-          const [startStr, endStr] = slot.split('-');
-          if (startStr && endStr) {
-            try {
-              const start = parseTimeToNumber(startStr);
-              const end = parseTimeToNumber(endStr);
-              
-              const newSlot: TimeSlot = {
-                id: generateId(),
-                start,
-                end,
-                type: start < 12 ? 'morning' : 'evening'
-              };
-              
-              if (start < 12) {
-                morning.push(newSlot);
-              } else {
-                evening.push(newSlot);
-              }
-            } catch (error) {
-              console.error("Error parsing time slot:", slot);
-            }
-          }
-        });
-      }
+      const parsedSlots = parseProviderTimeSlots(data.timeslot);
+      const morning = parsedSlots
+        .filter((slot) => slot.type === "morning")
+        .map((slot) => ({ ...slot, id: generateId() }));
+      const evening = parsedSlots
+        .filter((slot) => slot.type === "evening")
+        .map((slot) => ({ ...slot, id: generateId() }));
       
       setMorningSlots(morning);
       setEveningSlots(evening);
