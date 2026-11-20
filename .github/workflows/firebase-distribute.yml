@@ -171,7 +171,7 @@ jobs:
         run: |
           BUILD_NUM="${{ github.run_number }}"
           VERSION_CODE="$BUILD_NUM"
-          VERSION_NAME="1.0.${BUILD_NUM}"
+          VERSION_NAME="1.0.0"
           echo "VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
           echo "VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
           echo "Building iOS ${VERSION_NAME} (build ${VERSION_CODE}) for TestFlight"
